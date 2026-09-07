@@ -65,6 +65,15 @@ pitch bend placing each sampled note on its ratio. A second, plainer backend syn
 tones once per ratio at startup and plays them through `pw-play`, for machines without a
 SoundFont.
 
+## Dependencies
+
+- [hypr-dwm-land](https://github.com/Person1873/hypr-dwm-land), whose socket line this
+  program listens to. Without it there are no tags and nothing plays.
+- `fluidsynth` (Arch `extra`, 2.6) and a General MIDI SoundFont with a cello;
+  `soundfont-fluid` (FluidR3, Arch `extra`) is the default. On Omarchy:
+  `omarchy pkg add fluidsynth soundfont-fluid`. Neither is installed by this program.
+- `socat`, `jq`, and PipeWire's `pw-play` for the fallback backend; all ship with Omarchy.
+
 ## Origin
 
 Conceived on 2026-09-08 by Person1873 while shipping hypr-dwm-land, as "a completely
