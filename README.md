@@ -30,7 +30,9 @@ Issues and PRs adjusting tuning will be closed as "Won't fix".
 bin/just-hyprtonation                       # cello via fluidsynth, first monitor
 bin/just-hyprtonation --backend pwplay      # sine tones, no SoundFont needed
 bin/just-hyprtonation --backend dry         # prints what it would play
-bin/just-hyprtonation --muted               # start silent; SIGUSR1 toggles
+bin/just-hyprtonation --muted               # start silent
+bin/just-hyprtonation mute                  # toggle the running instance
+bin/just-hyprtonation stop
 ```
 
 On Omarchy, from `~/.config/hypr/autostart.lua`:

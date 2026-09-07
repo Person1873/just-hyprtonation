@@ -12,6 +12,7 @@ pw-play (sine tones synthesised at startup), dry (prints what it would play; for
 
     just-hyprtonation [--monitor NAME] [--backend fluidsynth|pwplay|dry] [--soundfont PATH]
                       [--tonic MIDI] [--muted] [--stdin]
+    just-hyprtonation mute | stop        signal the running instance (pidfile in XDG_RUNTIME_DIR)
 SIGUSR1 toggles mute. --stdin reads protocol lines from standard input instead of the socket.
 """
 import argparse
@@ -348,6 +349,41 @@ def follow(lines_out, monitor):
             time.sleep(1.0)
 
 
+def pidfile_path():
+    run = os.environ.get("XDG_RUNTIME_DIR")
+    if not run:
+        raise SystemExit("XDG_RUNTIME_DIR is not set")
+    d = os.path.join(run, "just-hyprtonation")
+    os.makedirs(d, mode=0o700, exist_ok=True)
+    return os.path.join(d, "pid")
+
+
+def write_pidfile():
+    path = pidfile_path()
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(str(os.getpid()))
+    return path
+
+
+def signal_running(sig):
+    """Send `sig` to the instance named by the pidfile, after checking it is ours."""
+    path = pidfile_path()
+    try:
+        with open(path) as f:
+            pid = int(f.read().strip() or "0")
+    except (OSError, ValueError):
+        raise SystemExit("no running instance (no pidfile)")
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            cmd = f.read()
+    except OSError:
+        raise SystemExit("no running instance (stale pidfile)")
+    if b"just-hyprtonation" not in cmd:
+        raise SystemExit("pidfile does not point at just-hyprtonation; not signalling")
+    os.kill(pid, sig)
+
+
 def default_monitor():
     try:
         out = subprocess.run(["/usr/bin/hyprctl", "monitors", "-j"], capture_output=True,
@@ -360,6 +396,9 @@ def default_monitor():
 
 
 def main():
+    if len(sys.argv) == 2 and sys.argv[1] in ("mute", "stop"):
+        signal_running(signal.SIGUSR1 if sys.argv[1] == "mute" else signal.SIGTERM)
+        return
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--monitor", default=None, help="monitor name whose tags to voice (default: first)")
     ap.add_argument("--backend", default="fluidsynth", choices=["fluidsynth", "pwplay", "dry"])
@@ -389,6 +428,7 @@ def main():
 
     signal.signal(signal.SIGUSR1, toggle_mute)
     signal.signal(signal.SIGTERM, lambda *_: (synth.close(), sys.exit(0)))
+    pidfile = None if args.stdin else write_pidfile()
 
     try:
         if args.stdin:
@@ -406,6 +446,11 @@ def main():
             follow(player.line, monitor)
     finally:
         synth.close()
+        if pidfile:
+            try:
+                os.remove(pidfile)
+            except OSError:
+                pass
 
 
 if __name__ == "__main__":
