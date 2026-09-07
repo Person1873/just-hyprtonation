@@ -5,6 +5,14 @@ note. Viewing a tag plays it; viewing several plays them together. Viewing all p
 populated tags in order. An urgent window plays two notes that lean toward its tag and stops;
 the tag's note follows when the tag is viewed.
 
+## Why
+
+You hear which tag you landed on without looking up; after a day the nine pitches are as
+familiar as a phone's tones, and a pair of tags you keep together has a sound of its own.
+An urgent window is heard at the edge of attention, by pitch, without a glance at the bar,
+and the figure does not finish until you go there. Viewing all is a census of the desk in
+half a second.
+
 ## Tuning
 
 | tag | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
