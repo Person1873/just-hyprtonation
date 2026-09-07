@@ -58,9 +58,12 @@ arpeggio when the view becomes "all", and the urgency figure for tags newly pres
 
 ## Sound
 
-Two planned backends: pure tones synthesised once per ratio at startup and played through
-`pw-play`, and a SoundFont through `fluidsynth` with pitch bend to pull sampled piano or
-cello onto the just ratios.
+Cello first. A bowed attack lets a chord arrive rather than strike, a sustained tone lets
+the urgency figure hang for as long as it is ignored, and the low register carries the
+intervals as they are meant to be heard. Realised with a SoundFont through `fluidsynth`,
+pitch bend placing each sampled note on its ratio. A second, plainer backend synthesises
+tones once per ratio at startup and plays them through `pw-play`, for machines without a
+SoundFont.
 
 ## Origin
 
