@@ -21,7 +21,16 @@ the AI's contributions, and says what has been tested.
   rather than modify the engine, the two sound backends, the mute/startup caveat.
 - All code: `bin/just-hyprtonation` (socket follower, tuning maths, chord/arpeggio/urgency logic, fluidsynth, pw-play and dry backends).
 
-## Tested (2026-09-08, dry backend only)
+## Heard (2026-09-08)
+
+fluidsynth 2.6 with FluidR3_GM over PipeWire, driven by the program: a single tag, a
+two-tag chord, the view-all arpeggio and the retreat, on this machine's speakers, judged
+by the human. Two things were wrong on first hearing and were fixed: a view reached by
+adding one tag sounded as a single note (the chord now voices the whole view on every
+change), and the arpeggio was muddy (notes shortened to 0.32 s, step widened to 0.17 s so
+at most two ring together). The urgency figure has not yet been heard live.
+
+## Tested earlier the same day, dry backend only
 
 The music logic was driven with scripted protocol lines and read back as the commands it
 would send: a single tag plays its ratio with the right pitch bend (5/4 lands 14 cents under

@@ -44,7 +44,8 @@ BEND_RANGE = 2                    # semitones either way, set on every channel
 CELLO_PROGRAM = 42                # General MIDI, zero-based
 NOTE_LEN = 0.9
 CHORD_LEN = 1.4
-ARP_STEP = 0.12
+ARP_NOTE = 0.32        # short, so at most two arpeggio notes ring together
+ARP_STEP = 0.17
 FIGURE_STEP = 0.22
 RESOLVE_LEN = 1.2
 VELOCITY = 84
@@ -203,11 +204,9 @@ class Player:
         resolving = (new_view & self.urgent) - (self.viewed & self.urgent)
         if is_all and not was_all:
             self.arpeggio(sorted(occupied))
-        elif was_all and not is_all:
-            # the retreat: the view you came back to, as a chord
+        elif not is_all and new_view != self.viewed:
+            # the view you are now looking at, as a chord (one tag: one note)
             self.chord(sorted(new_view - resolving))
-        elif added and not is_all:
-            self.chord(sorted(added - resolving))
         # an urgent tag that just came into view resolves; its note is the resolution
         for k in sorted(resolving):
             self.resolve(k)
@@ -235,9 +234,9 @@ class Player:
         tags = [k for k in tags if k in RATIOS]
         if not tags:
             return
-        step = min(ARP_STEP, 1.2 / len(tags))
+        step = min(ARP_STEP, 1.5 / len(tags))
         for i, k in enumerate(tags):
-            self._later(i * step, lambda r=RATIOS[k]: self._play(r, NOTE_LEN))
+            self._later(i * step, lambda r=RATIOS[k]: self._play(r, ARP_NOTE))
 
     def figure(self, k, first=False):
         """Two notes leaning toward the tag's own note, then nothing."""
