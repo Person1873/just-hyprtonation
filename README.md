@@ -37,7 +37,7 @@ The F-keys (tags 10..21 in hypr-dwm-land's dwm map) are the black keys above the
 intonation has no single answer for the sharps, and the choice decides which chords sing
 and which howl: 25/24 for the C sharp is the "augmented" colour against a 5/4 E, 16/15 is
 the wolf. The choice is deliberate and configurable; the wolfish chords are partly the
-point.
+point. Issues and PRs adjusting tuning will be closed as "Won't fix".
 
 Urgency figure, relative to the tag's own ratio *r*: *r* × 9/8, then *r* × 15/8 (a second
 above and the leading tone below), then silence; resolution is *r* itself.
