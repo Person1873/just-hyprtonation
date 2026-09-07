@@ -42,6 +42,9 @@ URGENT_LEAN = (9 / 8, 15 / 8)      # relative to the tag's own ratio, then silen
 URGENT_REPEAT = 60.0              # seconds between reminders while ignored
 BEND_RANGE = 2                    # semitones either way, set on every channel
 CELLO_PROGRAM = 42                # General MIDI, zero-based
+# One channel per simultaneous note (pitch bend is per channel). Channel 9 is General
+# MIDI's percussion channel whatever program it is given, so it is never used.
+MELODIC_CHANNELS = [ch for ch in range(16) if ch != 9]
 NOTE_LEN = 0.9
 CHORD_LEN = 1.4
 ARP_NOTE = 0.32        # short, so at most two arpeggio notes ring together
@@ -93,7 +96,7 @@ class FluidSynth:
         cmd = ["/usr/bin/fluidsynth", "-n", "-a", audio_driver, "-q", "-g", str(gain), soundfont]
         self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                                      stderr=subprocess.DEVNULL, text=True)
-        for ch in range(16):
+        for ch in MELODIC_CHANNELS:
             self._send(f"prog {ch} {CELLO_PROGRAM}")
             self._send(f"pitch_bend_range {ch} {BEND_RANGE}")
 
@@ -107,8 +110,8 @@ class FluidSynth:
     def play(self, ratio, seconds, channel=None):
         key, bend = midi_and_bend(self.tonic, ratio)
         with self.lock:
-            ch = self.next_channel
-            self.next_channel = (self.next_channel + 1) % 16
+            ch = MELODIC_CHANNELS[self.next_channel]
+            self.next_channel = (self.next_channel + 1) % len(MELODIC_CHANNELS)
         self._send(f"pitch_bend {ch} {bend}")
         self._send(f"noteon {ch} {key} {VELOCITY}")
         threading.Timer(seconds, lambda: self._send(f"noteoff {ch} {key}")).start()
