@@ -1,0 +1,410 @@
+#!/usr/bin/env python3
+"""Just hyprtonation: hypr-dwm-land tags as notes of a just-intonated scale, on a cello.
+
+Reads hypr-dwm-land's line on Hyprland's event socket
+    custom>>hyprdwmland>><monitor>|v=<viewed>|o=<tag:count,...>|u=<urgent>|f=<focused>
+and plays: newly viewed tags (a chord when several arrive together), the populated tags as
+an arpeggio when the view becomes "all", and an unresolved figure for an urgent tag that
+resolves onto the tag's own note when the tag is viewed.
+
+Backends: fluidsynth (default; a SoundFont cello, pitch-bent onto the just ratios),
+pw-play (sine tones synthesised at startup), dry (prints what it would play; for tests).
+
+    just-hyprtonation [--monitor NAME] [--backend fluidsynth|pwplay|dry] [--soundfont PATH]
+                      [--tonic MIDI] [--muted] [--stdin]
+SIGUSR1 toggles mute. --stdin reads protocol lines from standard input instead of the socket.
+"""
+import argparse
+import math
+import os
+import signal
+import socket
+import struct
+import subprocess
+import sys
+import threading
+import time
+import wave
+
+# ---------------------------------------------------------------------------------------
+# Tuning. Tag 1 is the tonic. Digits are the white keys of a just major scale, an octave
+# and a second; F-keys (tags 10..21) are the sharps, continuing upward. The sharps are a
+# choice; they are the right one.
+# ---------------------------------------------------------------------------------------
+
+WHITE = [1, 9 / 8, 5 / 4, 4 / 3, 3 / 2, 5 / 3, 15 / 8, 2, 9 / 4]
+BLACK = [25 / 24, 75 / 64, 45 / 32, 25 / 16, 225 / 128,
+         25 / 12, 75 / 32, 45 / 16, 25 / 8, 225 / 64, 25 / 6, 75 / 16]
+RATIOS = {i + 1: r for i, r in enumerate(WHITE)}
+RATIOS.update({10 + i: r for i, r in enumerate(BLACK)})
+
+URGENT_LEAN = (9 / 8, 15 / 8)      # relative to the tag's own ratio, then silence
+URGENT_REPEAT = 60.0              # seconds between reminders while ignored
+BEND_RANGE = 2                    # semitones either way, set on every channel
+CELLO_PROGRAM = 42                # General MIDI, zero-based
+NOTE_LEN = 0.9
+CHORD_LEN = 1.4
+ARP_STEP = 0.12
+FIGURE_STEP = 0.22
+RESOLVE_LEN = 1.2
+VELOCITY = 84
+
+
+def midi_and_bend(tonic, ratio):
+    """Nearest MIDI key and 14-bit pitch-bend value placing `ratio` above `tonic`."""
+    semis = 12 * math.log2(ratio)
+    key = int(round(tonic + semis))
+    frac = tonic + semis - key            # semitones off the key, |frac| <= 0.5
+    bend = int(round(8192 + frac / BEND_RANGE * 8192))
+    return max(0, min(127, key)), max(0, min(16383, bend))
+
+
+# ---------------------------------------------------------------------------------------
+# Backends
+# ---------------------------------------------------------------------------------------
+
+class Dry:
+    """Prints the commands it would send. Used by --backend dry and the tests."""
+
+    def __init__(self, tonic, **_):
+        self.tonic = tonic
+
+    def play(self, ratio, seconds, channel=0):
+        key, bend = midi_and_bend(self.tonic, ratio)
+        cents = 1200 * math.log2(ratio)
+        print(f"play ratio={ratio:.5f} ({cents:7.1f} cents) key={key} bend={bend} "
+              f"for {seconds:.2f}s on ch{channel}", flush=True)
+
+    def close(self):
+        pass
+
+
+class FluidSynth:
+    """One fluidsynth process; commands over its stdin shell. Each simultaneous note gets
+    its own channel because pitch bend is per channel."""
+
+    def __init__(self, tonic, soundfont, audio_driver="pipewire", gain=0.8, **_):
+        self.tonic = tonic
+        self.lock = threading.Lock()
+        self.next_channel = 0
+        # -n: no MIDI input driver. No -i: the shell stays on and reads our commands from
+        # stdin (fluidsynth creates it whenever it is not playing a MIDI file).
+        cmd = ["/usr/bin/fluidsynth", "-n", "-a", audio_driver, "-q", "-g", str(gain), soundfont]
+        self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL, text=True)
+        for ch in range(16):
+            self._send(f"prog {ch} {CELLO_PROGRAM}")
+            self._send(f"pitch_bend_range {ch} {BEND_RANGE}")
+
+    def _send(self, line):
+        with self.lock:
+            if self.proc.poll() is not None:
+                return
+            self.proc.stdin.write(line + "\n")
+            self.proc.stdin.flush()
+
+    def play(self, ratio, seconds, channel=None):
+        key, bend = midi_and_bend(self.tonic, ratio)
+        with self.lock:
+            ch = self.next_channel
+            self.next_channel = (self.next_channel + 1) % 16
+        self._send(f"pitch_bend {ch} {bend}")
+        self._send(f"noteon {ch} {key} {VELOCITY}")
+        threading.Timer(seconds, lambda: self._send(f"noteoff {ch} {key}")).start()
+
+    def close(self):
+        self._send("reset")
+        self._send("quit")
+        try:
+            self.proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+
+
+class PwPlay:
+    """Fallback: a sine tone per ratio rendered once into $XDG_RUNTIME_DIR and played
+    with pw-play. No SoundFont, no cello, but the ratios are exact."""
+
+    RATE = 48000
+
+    def __init__(self, tonic, **_):
+        self.tonic = tonic
+        base = os.environ.get("XDG_RUNTIME_DIR")
+        if not base:
+            raise SystemExit("XDG_RUNTIME_DIR is not set")
+        self.dir = os.path.join(base, "just-hyprtonation")
+        os.makedirs(self.dir, mode=0o700, exist_ok=True)
+        self.cache = {}
+
+    def _file(self, ratio, seconds):
+        key = (round(ratio, 6), round(seconds, 2))
+        if key in self.cache:
+            return self.cache[key]
+        path = os.path.join(self.dir, f"tone-{key[0]}-{key[1]}.wav")
+        freq = 440.0 * 2 ** ((self.tonic - 69) / 12) * ratio
+        n = int(self.RATE * seconds)
+        attack = int(self.RATE * 0.06)
+        release = int(self.RATE * 0.25)
+        frames = bytearray()
+        for i in range(n):
+            env = min(1.0, i / attack, (n - i) / release)
+            s = 0.28 * env * (math.sin(2 * math.pi * freq * i / self.RATE)
+                              + 0.35 * math.sin(4 * math.pi * freq * i / self.RATE))
+            frames += struct.pack("<h", int(s * 32767))
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "wb") as fh, wave.open(fh, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(self.RATE)
+            w.writeframes(bytes(frames))
+        self.cache[key] = path
+        return path
+
+    def play(self, ratio, seconds, channel=None):
+        path = self._file(ratio, seconds)
+        subprocess.Popen(["/usr/bin/pw-play", "--", path],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def close(self):
+        pass
+
+
+# ---------------------------------------------------------------------------------------
+# The music
+# ---------------------------------------------------------------------------------------
+
+class Player:
+    def __init__(self, synth, ntags=21):
+        self.synth = synth
+        self.ntags = ntags
+        self.muted = False
+        self.viewed = set()
+        self.occupied = set()
+        self.urgent = set()
+        self.urgent_timers = {}
+        self.lock = threading.Lock()
+
+    def _play(self, ratio, seconds):
+        if not self.muted:
+            self.synth.play(ratio, seconds)
+
+    def _later(self, delay, fn):
+        t = threading.Timer(delay, fn)
+        t.daemon = True
+        t.start()
+        return t
+
+    # -- events -------------------------------------------------------------------------
+
+    def view_changed(self, new_view, occupied):
+        added = new_view - self.viewed
+        is_all = len(new_view) >= self.ntags
+        was_all = len(self.viewed) >= self.ntags
+        resolving = (new_view & self.urgent) - (self.viewed & self.urgent)
+        if is_all and not was_all:
+            self.arpeggio(sorted(occupied))
+        elif was_all and not is_all:
+            # the retreat: the view you came back to, as a chord
+            self.chord(sorted(new_view - resolving))
+        elif added and not is_all:
+            self.chord(sorted(added - resolving))
+        # an urgent tag that just came into view resolves; its note is the resolution
+        for k in sorted(resolving):
+            self.resolve(k)
+        self.viewed = set(new_view)
+
+    def urgency_changed(self, new_urgent):
+        for k in sorted(new_urgent - self.urgent):
+            if k not in self.viewed:
+                self.figure(k, first=True)
+        for k in self.urgent - new_urgent:
+            t = self.urgent_timers.pop(k, None)
+            if t:
+                t.cancel()
+        self.urgent = set(new_urgent)
+
+    # -- gestures -----------------------------------------------------------------------
+
+    def chord(self, tags):
+        length = CHORD_LEN if len(tags) > 1 else NOTE_LEN
+        for k in tags:
+            if k in RATIOS:
+                self._play(RATIOS[k], length)
+
+    def arpeggio(self, tags):
+        tags = [k for k in tags if k in RATIOS]
+        if not tags:
+            return
+        step = min(ARP_STEP, 1.2 / len(tags))
+        for i, k in enumerate(tags):
+            self._later(i * step, lambda r=RATIOS[k]: self._play(r, NOTE_LEN))
+
+    def figure(self, k, first=False):
+        """Two notes leaning toward the tag's own note, then nothing."""
+        r = RATIOS.get(k)
+        if r is None:
+            return
+        for i, lean in enumerate(URGENT_LEAN):
+            self._later(i * FIGURE_STEP, lambda rr=r * lean: self._play(rr, FIGURE_STEP * 1.1))
+        # the reminder, while it stays urgent and unviewed
+        t = self._later(URGENT_REPEAT, lambda: self._remind(k))
+        old = self.urgent_timers.get(k)
+        if old:
+            old.cancel()
+        self.urgent_timers[k] = t
+
+    def _remind(self, k):
+        with self.lock:
+            if k in self.urgent and k not in self.viewed:
+                self.figure(k)
+
+    def resolve(self, k):
+        r = RATIOS.get(k)
+        if r is None:
+            return
+        t = self.urgent_timers.pop(k, None)
+        if t:
+            t.cancel()
+        self._play(r, RESOLVE_LEN)
+
+    # -- protocol -----------------------------------------------------------------------
+
+    def line(self, text):
+        """Consume one `<monitor>|v=..|o=..|u=..|f=..` body (prefix already stripped)."""
+        fields = text.split("|")
+        data = {}
+        for f in fields[1:]:
+            if "=" in f:
+                key, val = f.split("=", 1)
+                data[key] = val
+
+        def ints(s, split_counts=False):
+            out = set()
+            for part in s.split(","):
+                if not part:
+                    continue
+                if split_counts:
+                    part = part.split(":", 1)[0]
+                if part.isdigit():
+                    n = int(part)
+                    if 1 <= n <= 999:
+                        out.add(n)
+            return out
+
+        viewed = ints(data.get("v", ""))
+        occupied = ints(data.get("o", ""), split_counts=True)
+        urgent = ints(data.get("u", ""))
+        with self.lock:
+            self.occupied = occupied
+            self.view_changed(viewed, occupied)
+            self.urgency_changed(urgent)
+
+
+# ---------------------------------------------------------------------------------------
+# Socket follower
+# ---------------------------------------------------------------------------------------
+
+PREFIX = "custom>>hyprdwmland>>"
+MAX_LINE = 4096
+
+
+def socket_path():
+    run = os.environ.get("XDG_RUNTIME_DIR")
+    sig = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
+    if not run or not sig:
+        raise SystemExit("XDG_RUNTIME_DIR and HYPRLAND_INSTANCE_SIGNATURE must be set")
+    return os.path.join(run, "hypr", sig, ".socket2.sock")
+
+
+def follow(lines_out, monitor):
+    """Yield protocol bodies for `monitor` from the event socket, reconnecting on loss."""
+    while True:
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+                s.connect(socket_path())
+                # now that we are listening, ask hypr-dwm-land for the current state
+                subprocess.Popen(["/usr/bin/hyprctl", "eval", "hyprdwmland.emit()"],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                buf = b""
+                while True:
+                    chunk = s.recv(65536)
+                    if not chunk:
+                        break
+                    buf += chunk
+                    if len(buf) > MAX_LINE * 8:
+                        buf = buf[-MAX_LINE:]
+                    while b"\n" in buf:
+                        raw, buf = buf.split(b"\n", 1)
+                        if len(raw) > MAX_LINE:
+                            continue
+                        line = raw.decode("utf-8", "replace")
+                        if line.startswith(PREFIX):
+                            body = line[len(PREFIX):]
+                            if body.split("|", 1)[0] == monitor:
+                                lines_out(body)
+        except (OSError, ConnectionError):
+            time.sleep(1.0)
+
+
+def default_monitor():
+    try:
+        out = subprocess.run(["/usr/bin/hyprctl", "monitors", "-j"], capture_output=True,
+                             text=True, timeout=3).stdout
+        import json
+        mons = json.loads(out)
+        return mons[0]["name"] if mons else ""
+    except Exception:
+        return ""
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--monitor", default=None, help="monitor name whose tags to voice (default: first)")
+    ap.add_argument("--backend", default="fluidsynth", choices=["fluidsynth", "pwplay", "dry"])
+    ap.add_argument("--soundfont", default="/usr/share/soundfonts/FluidR3_GM.sf2")
+    ap.add_argument("--audio-driver", default="pipewire")
+    ap.add_argument("--tonic", type=int, default=48, help="MIDI note of tag 1 (48 = C3, cello)")
+    ap.add_argument("--ntags", type=int, default=21)
+    ap.add_argument("--muted", action="store_true", help="start muted; SIGUSR1 toggles")
+    ap.add_argument("--stdin", action="store_true", help="read protocol bodies from stdin (tests)")
+    args = ap.parse_args()
+
+    if args.backend == "fluidsynth":
+        if not os.path.isfile(args.soundfont):
+            raise SystemExit(f"SoundFont not found: {args.soundfont}")
+        synth = FluidSynth(args.tonic, soundfont=args.soundfont, audio_driver=args.audio_driver)
+    elif args.backend == "pwplay":
+        synth = PwPlay(args.tonic)
+    else:
+        synth = Dry(args.tonic)
+
+    player = Player(synth, ntags=args.ntags)
+    player.muted = args.muted
+
+    def toggle_mute(*_):
+        player.muted = not player.muted
+        print("muted" if player.muted else "unmuted", file=sys.stderr, flush=True)
+
+    signal.signal(signal.SIGUSR1, toggle_mute)
+    signal.signal(signal.SIGTERM, lambda *_: (synth.close(), sys.exit(0)))
+
+    try:
+        if args.stdin:
+            for raw in sys.stdin:
+                raw = raw.rstrip("\n")
+                if raw.startswith(PREFIX):
+                    raw = raw[len(PREFIX):]
+                if raw:
+                    player.line(raw)
+            time.sleep(3)  # let timers finish
+        else:
+            monitor = args.monitor or default_monitor()
+            if not monitor:
+                raise SystemExit("could not determine a monitor; pass --monitor")
+            follow(player.line, monitor)
+    finally:
+        synth.close()
+
+
+if __name__ == "__main__":
+    main()

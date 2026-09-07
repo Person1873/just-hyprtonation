@@ -65,6 +65,26 @@ pitch bend placing each sampled note on its ratio. A second, plainer backend syn
 tones once per ratio at startup and plays them through `pw-play`, for machines without a
 SoundFont.
 
+## Running it
+
+```sh
+bin/just-hyprtonation                       # cello via fluidsynth, first monitor
+bin/just-hyprtonation --backend pwplay      # sine tones, no SoundFont needed
+bin/just-hyprtonation --backend dry         # prints what it would play
+bin/just-hyprtonation --muted               # start silent; SIGUSR1 toggles
+```
+
+On Omarchy, start it with the session from `~/.config/hypr/autostart.lua`:
+
+```lua
+o.launch_on_start("~/just-hyprtonation/bin/just-hyprtonation")
+```
+
+Options: `--monitor NAME` (default: the first monitor), `--tonic MIDI` (default 48, C3, where
+a cello lives), `--soundfont PATH` (default `/usr/share/soundfonts/FluidR3_GM.sf2`),
+`--audio-driver` (default `pipewire`). `--stdin` reads protocol lines from standard input, for
+testing the music without a compositor.
+
 ## Dependencies
 
 - [hypr-dwm-land](https://github.com/Person1873/hypr-dwm-land), whose socket line this

@@ -19,8 +19,17 @@ the AI's contributions, and says what has been tested.
   that the sharps have no single just answer (25/24 versus 16/15), the 9/8 and 15/8 leaning
   notes for the urgency figure, the choice to consume hypr-dwm-land's published socket line
   rather than modify the engine, the two sound backends, the mute/startup caveat.
-- All code, once written.
+- All code: `bin/just-hyprtonation` (socket follower, tuning maths, chord/arpeggio/urgency logic, fluidsynth, pw-play and dry backends).
 
-## Tested
+## Tested (2026-09-08, dry backend only)
 
-Nothing yet; there is no code.
+The music logic was driven with scripted protocol lines and read back as the commands it
+would send: a single tag plays its ratio with the right pitch bend (5/4 lands 14 cents under
+the equal-tempered key, as it must); adding a tag plays the added note; viewing all
+arpeggiates the occupied tags in order; leaving "all" plays the returned-to view as a chord;
+an urgent tag plays 9/8 then 15/8 of its own ratio; viewing it plays the ratio once, as the
+resolution, not twice. The dry backend was also run on the live Hyprland socket through two
+real view changes. Not tested: any sound. fluidsynth and a SoundFont were not installed on
+the development machine at the time (the human was away from the keyboard and could not
+authorise the install), so the fluidsynth and pw-play backends are written against the
+documented interfaces (fluidsynth's shell command table and man page) and unheard.
