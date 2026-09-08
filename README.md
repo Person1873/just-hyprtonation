@@ -55,31 +55,38 @@ sharpened tonic.
 
 Issues and PRs adjusting tuning will be closed as "Won't fix".
 
-## Instruments
+## Settings
 
-Vibraphone, cello, glass, organ, saw, dulcimer, tubular bells, handbells. The player's command
-is `~/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation`; the running
-instance takes:
+A pane in the shell: instrument, F-key layout, mute. Open it with
+
+```sh
+omarchy-shell shell toggle person1873.just-hyprtonation
+```
+
+bound to a key in `~/.config/hypr/bindings.lua`, for instance:
+
+```lua
+o.bind("SUPER + ALT + I", "Hyprtonation settings", "omarchy-shell shell toggle person1873.just-hyprtonation")
+```
+
+In the pane: Up/Down or J/K walk the instruments, Return picks, L flips the layout, M mutes,
+Escape closes; or click. Instruments: vibraphone, cello, glass, organ, saw, dulcimer, tubular
+bells, handbells. The choice and layout are remembered in `~/.local/state/just-hyprtonation/`.
+
+The same from the command line, with the player at
+`~/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation`:
 
 ```sh
 just-hyprtonation instrument handbell   # or next | prev
-just-hyprtonation pick                  # choose from a menu (Omarchy)
-just-hyprtonation status                # the current instrument
+just-hyprtonation pick                  # omarchy-menu-select
+just-hyprtonation status
 just-hyprtonation layout piano|laptop
 just-hyprtonation mute                  # toggle
 ```
 
-The instrument and layout are remembered in `~/.local/state/just-hyprtonation/`.
-
-A key for the picker, in `~/.config/hypr/bindings.lua`:
-
-```lua
-o.bind("SUPER + ALT + I", "Hyprtonation instrument", "~/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation pick")
-```
-
 [examples/omarchy-menu.jsonc](examples/omarchy-menu.jsonc) adds a Hyprtonation submenu to
-the Omarchy menu, with mute and one row per instrument, the current one ticked; merge it into
-`~/.config/omarchy/extensions/omarchy-menu.jsonc`.
+the Omarchy menu: settings, mute and one row per instrument, the current one ticked; merge it
+into `~/.config/omarchy/extensions/omarchy-menu.jsonc`.
 
 ## Jam
 

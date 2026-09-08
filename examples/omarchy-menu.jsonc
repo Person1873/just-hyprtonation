@@ -3,6 +3,7 @@
 // The submenu only shows while an instance is running.
 {
   "hyprtonation": {"icon":"󰎈","label":"Hyprtonation","when":"[ -e \"$XDG_RUNTIME_DIR/just-hyprtonation/pid\" ]"},
+  "hyprtonation.settings": {"icon":"","label":"Settings","action":"omarchy-shell shell toggle person1873.just-hyprtonation"},
   "hyprtonation.mute": {"icon":"󰝟","label":"Mute","action":"$HOME/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation mute"},
   "hyprtonation.vibraphone": {"label":"Vibraphone","action":"$HOME/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation instrument vibraphone","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = vibraphone ]"},
   "hyprtonation.cello": {"label":"Cello","action":"$HOME/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation instrument cello","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = cello ]"},

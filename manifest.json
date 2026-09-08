@@ -6,9 +6,11 @@
   "author": "Person1873",
   "description": "A vibraphone for hypr-dwm-land: each tag a just-intonated note, a view a chord",
   "kinds": [
-    "service"
+    "service",
+    "panel"
   ],
   "entryPoints": {
-    "service": "shell/Service.qml"
+    "service": "shell/Service.qml",
+    "panel": "Panel.qml"
   }
 }
