@@ -36,8 +36,47 @@ import time
 WHITE = [1, 9 / 8, 5 / 4, 4 / 3, 3 / 2, 5 / 3, 15 / 8, 2, 9 / 4]
 BLACK = [25 / 24, 75 / 64, 45 / 32, 25 / 16, 225 / 128,
          25 / 12, 75 / 32, 45 / 16, 25 / 8, 225 / 64, 25 / 6, 75 / 16]
-RATIOS = {i + 1: r for i, r in enumerate(WHITE)}
-RATIOS.update({10 + i: r for i, r in enumerate(BLACK)})
+
+
+def white(i):
+    """Degree i (1-based) of the major scale, continued through the octaves."""
+    return WHITE[(i - 1) % 7] * 2 ** ((i - 1) // 7)
+
+
+# Layouts for the F-keys. "piano": the twelve sharps in order. "laptop": the F-keys sit
+# evenly above the digits, so F<n> is the key between white n and white n+1; where the
+# piano has no black key there (E-F, B-C) the note is the quarter-tone between them.
+def _laptop():
+    out = []
+    for n in range(1, 13):
+        lo, hi = white(n), white(n + 1)
+        step = (n - 1) % 7
+        out.append(math.sqrt(lo * hi) if step in (2, 6) else BLACK_BY_GAP[step] * 2 ** ((n - 1) // 7))
+    return out
+
+
+BLACK_BY_GAP = {0: 25 / 24, 1: 75 / 64, 3: 45 / 32, 4: 25 / 16, 5: 225 / 128}
+LAYOUTS = {"piano": BLACK, "laptop": None}
+RATIOS = {}
+
+
+def set_layout(name):
+    black = _laptop() if name == "laptop" else LAYOUTS[name]
+    RATIOS.clear()
+    RATIOS.update({i + 1: r for i, r in enumerate(WHITE)})
+    RATIOS.update({10 + i: r for i, r in enumerate(black)})
+
+
+set_layout("piano")
+
+
+def degree_chord(tag):
+    """The triad on a scale degree: stacked thirds of the scale for a white key, a major
+    triad on the note for a black one."""
+    if tag <= 9:
+        return (white(tag), white(tag + 2), white(tag + 4))
+    r = RATIOS[tag]
+    return (r, r * 5 / 4, r * 3 / 2)
 
 # The urgency figure, relative to the tag's own ratio r: the diminished seventh on the
 # tag's leading tone (ti in the bass, re, fa, le above: 15/16, 9/8, 4/3, 8/5), held and
@@ -109,12 +148,13 @@ class Dry:
 
     def __init__(self, tonic, **_):
         self.tonic = tonic
+        self.transpose = 0
 
     def set_instrument(self, name):
         print(f"instrument {name}", flush=True)
 
     def play(self, ratio, seconds, velocity=VELOCITY, strike=False):
-        key, bend = midi_and_bend(self.tonic, ratio)
+        key, bend = midi_and_bend(self.tonic + self.transpose, ratio)
         cents = 1200 * math.log2(ratio)
         print(f"play ratio={ratio:.5f} ({cents:7.1f} cents) key={key} bend={bend} "
               f"vel={velocity} for {seconds:.2f}s{' strike' if strike else ''}", flush=True)
@@ -130,6 +170,7 @@ class FluidSynth:
     def __init__(self, tonic, soundfont, audio_driver="pipewire", gain=0.8, instrument="vibraphone",
                  fixed_tonic=False, **_):
         self.tonic = tonic
+        self.transpose = 0                  # semitones, from jam mode's +/-
         self.fixed_tonic = fixed_tonic      # --tonic given: keep it across instrument changes
         self.lock = threading.Lock()
         self.next_channel = 0
@@ -189,7 +230,7 @@ class FluidSynth:
             self.proc.stdin.flush()
 
     def play(self, ratio, seconds, velocity=VELOCITY, strike=False):
-        key, bend = midi_and_bend(self.tonic, ratio)
+        key, bend = midi_and_bend(self.tonic + self.transpose, ratio)
         with self.lock:
             if strike:
                 ch = STRIKE_CHANNELS[self.next_strike]
@@ -323,19 +364,30 @@ class Player:
     # -- protocol -----------------------------------------------------------------------
 
     def jam(self, text):
-        """Jam mode: `note|N` plays tag N's note, `chord|N` its major triad. Nothing else
+        """Jam mode: `note|N` plays tag N's note, `chord|N` the triad on its scale degree,
+        `transpose|S` moves the key by S semitones and sounds the new tonic. Nothing else
         changes; the keys are bound inside a Hyprland submap that shadows the tag keys."""
         what, _, arg = text.partition("|")
+        if what == "transpose":
+            try:
+                step = int(arg)
+            except ValueError:
+                return
+            if abs(step) > 12:
+                return
+            self.synth.transpose = max(-24, min(24, self.synth.transpose + step))
+            self._play(1, NOTE_LEN)
+            return
         if not arg.isdigit() or not 1 <= int(arg) <= self.ntags:
             return
-        r = RATIOS.get(int(arg))
-        if r is None:
+        tag = int(arg)
+        if tag not in RATIOS:
             return
         if what == "note":
-            self._play(r, NOTE_LEN)
+            self._play(RATIOS[tag], NOTE_LEN)
         elif what == "chord":
-            for step in URGENT_RESOLVE:
-                self._play(r * step, CHORD_LEN)
+            for r in degree_chord(tag):
+                self._play(r, CHORD_LEN)
 
     def line(self, text):
         """Consume one `<monitor>|v=..|o=..|u=..|f=..` body (prefix already stripped)."""
@@ -557,9 +609,12 @@ def main():
                     help="default: the last one picked, else vibraphone")
     ap.add_argument("--tonic", type=int, default=None, help="MIDI note of tag 1 (default: the instrument's)")
     ap.add_argument("--ntags", type=int, default=21)
+    ap.add_argument("--layout", default="piano", choices=sorted(LAYOUTS),
+                    help="F-key tuning: piano (the sharps in order) or laptop (F<n> between white n and n+1)")
     ap.add_argument("--muted", action="store_true", help="start muted; SIGUSR1 toggles")
     ap.add_argument("--stdin", action="store_true", help="read protocol bodies from stdin (tests)")
     args = ap.parse_args()
+    set_layout(args.layout)
     if args.instrument is None:
         args.instrument = saved_instrument() or "vibraphone"
     elif not args.stdin:

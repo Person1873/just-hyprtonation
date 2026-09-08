@@ -1,6 +1,7 @@
 -- Jam mode for just-hyprtonation: a Hyprland submap in which the tag keys play their notes
 -- and move nothing. Enter with the key below; inside, 1..9, 0 and F1..F12 play the tag's
--- note, SHIFT + key its major triad, ESCAPE (or the entry key again) leaves. The submap
+-- note, SHIFT + key the triad on that scale degree, - and = move the key down or up a
+-- semitone (with SHIFT, a tone), ESCAPE (or the entry key again) leaves. The submap
 -- shadows every tag bind, so no window or view changes while it is on.
 --
 -- From ~/.config/hypr/bindings.lua (after the hypr-dwm-land keys):
@@ -8,21 +9,26 @@
 -- Edit `key` for another chord.
 local key = "SUPER + ALT + M"
 
-local function note(n) return hl.dsp.event("hyprtonation>>note|" .. n) end
-local function chord(n) return hl.dsp.event("hyprtonation>>chord|" .. n) end
+local function ev(s) return hl.dsp.event("hyprtonation>>" .. s) end
 
 hl.bind(key, hl.dsp.submap("jam"), { description = "Hyprtonation: jam mode" })
 hl.define_submap("jam", function()
   for k = 1, 9 do
-    hl.bind("code:" .. (k + 9), note(k))
-    hl.bind("SHIFT + code:" .. (k + 9), chord(k))
+    hl.bind("code:" .. (k + 9), ev("note|" .. k))
+    hl.bind("SHIFT + code:" .. (k + 9), ev("chord|" .. k))
   end
-  hl.bind("code:19", note(8))            -- 0 sits an octave up
-  hl.bind("SHIFT + code:19", chord(8))
+  hl.bind("code:19", ev("note|8"))            -- 0 sits an octave up
+  hl.bind("SHIFT + code:19", ev("chord|8"))
   for k = 10, 21 do
-    hl.bind("F" .. (k - 9), note(k))
-    hl.bind("SHIFT + F" .. (k - 9), chord(k))
+    hl.bind("F" .. (k - 9), ev("note|" .. k))
+    hl.bind("SHIFT + F" .. (k - 9), ev("chord|" .. k))
   end
+  hl.bind("minus", ev("transpose|-1"))
+  hl.bind("equal", ev("transpose|1"))
+  hl.bind("SHIFT + minus", ev("transpose|-2"))
+  hl.bind("SHIFT + equal", ev("transpose|2"))
+  hl.bind("KP_Subtract", ev("transpose|-1"))
+  hl.bind("KP_Add", ev("transpose|1"))
   hl.bind("escape", hl.dsp.submap("reset"))
   hl.bind(key, hl.dsp.submap("reset"))
 end)

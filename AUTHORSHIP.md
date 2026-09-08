@@ -102,6 +102,16 @@ Verified: config reloads clean, the submap lists 46 binds, the entry key is regi
 note and chord events fired at the socket sound. The submap was not entered from the
 keyboard by the AI; the human did that.
 
+Then, the human's refinements: `-`/`=` transpose by a semitone, a tone with SHIFT (the new
+tonic sounds as feedback; the transposition stays for tag sounds too until the program is
+restarted), and SHIFT + key plays the triad on the scale degree, stacked thirds of the just
+scale, so ii, iii and vi come out minor and vii diminished. And the human's observation that
+on a laptop the F-keys sit evenly above the digits, unlike black keys: `--layout laptop`
+puts F*n* between white *n* and *n*+1, the sharp where a black key exists and the geometric
+mean of the two whites (a just quarter-tone) at E-F and B-C. The AI checked the table by
+printing it (F3 at 442 cents between E 386 and F 498; F7 at 1144 between B 1088 and C 1200)
+and fired note, chord and transpose events at the running player.
+
 ## Corrected (2026-09-08)
 
 Asked for "a swell and decay" on the saw, the AI sent MIDI sound controllers (CC 73 attack,
