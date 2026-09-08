@@ -161,6 +161,12 @@ release, taps of F6 and F5 paired cleanly. An attempt to test with wtype instead
 submap's Escape bind: Hyprland resolves a virtual keyboard's keycode through the real
 keymap, where wtype's first keycode is Escape.
 
+Latency: "the latency is weird" on the saw. Its onset went from about 30 ms to about 8 ms
+(attack offset +3600 timecents) and fluidsynth's audio buffering from the default sixteen
+64-frame periods to four, roughly 23 ms down to 6. Verdict by playing: "benny & the jets
+becomes really easy on this". No crackle reported at the smaller buffer on the author's
+machine; a machine that underruns should raise `-c`.
+
 ## Settings pane (2026-09-08)
 
 The human, after a Jobs/Woz aside: the layout switch "should be a toggle in the instrument

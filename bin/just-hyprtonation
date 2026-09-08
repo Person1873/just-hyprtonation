@@ -99,7 +99,7 @@ INSTRUMENTS = {
     "cello":        dict(sustain=True, melodic=42, strike=42, tonic=48, strike_velocity=127),
     "glass":        dict(sustain=True, melodic=92, strike=98, tonic=72, velocity=56, strike_velocity=70),   # bowed glass / crystal, played softly
     "organ":        dict(sustain=True, melodic=19, strike=19, tonic=48),    # church organ
-    "saw":          dict(sustain=True, melodic=81, strike=81, tonic=36, env=dict(attack=5800, release=3200)),   # softened on and off
+    "saw":          dict(sustain=True, melodic=81, strike=81, tonic=36, env=dict(attack=3600, release=3200)),   # softened on and off
     "vibraphone":   dict(melodic=11, strike=11, tonic=60, strike_velocity=104),
     "dulcimer":     dict(melodic=15, strike=15, tonic=60),
     "tubular":      dict(melodic=14, strike=14, tonic=60),   # tubular bells
@@ -182,7 +182,9 @@ class FluidSynth:
         self.next_strike = 0
         # -n: no MIDI input driver. No -i: the shell stays on and reads our commands from
         # stdin (fluidsynth creates it whenever it is not playing a MIDI file).
-        cmd = ["/usr/bin/fluidsynth", "-n", "-a", audio_driver, "-q", "-g", str(gain), soundfont]
+        # -z/-c: 64-frame periods, 4 of them (default 16): ~6 ms of buffering instead of ~23.
+        cmd = ["/usr/bin/fluidsynth", "-n", "-a", audio_driver, "-q", "-g", str(gain),
+               "-z", "64", "-c", "4", soundfont]
         self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                                      stderr=subprocess.DEVNULL, text=True)
         self.set_instrument(instrument)
