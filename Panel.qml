@@ -23,7 +23,8 @@ Item {
   readonly property string runDir: Quickshell.env("XDG_RUNTIME_DIR") + "/just-hyprtonation"
   readonly property var instruments: [
     ["vibraphone", "Vibraphone"], ["cello", "Cello"], ["glass", "Glass"], ["organ", "Organ"],
-    ["saw", "Saw"], ["dulcimer", "Dulcimer"], ["tubular", "Tubular bells"], ["handbell", "Handbells"]
+    ["saw", "Saw"], ["dulcimer", "Dulcimer"], ["marimba", "Marimba"], ["tubular", "Tubular bells"],
+    ["handbell", "Handbells"]
   ]
 
   property string instrument: ""

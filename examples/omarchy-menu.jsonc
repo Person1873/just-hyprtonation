@@ -11,6 +11,7 @@
   "hyprtonation.organ": {"label":"Organ","action":"$HOME/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation instrument organ","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = organ ]"},
   "hyprtonation.saw": {"label":"Saw","action":"$HOME/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation instrument saw","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = saw ]"},
   "hyprtonation.dulcimer": {"label":"Dulcimer","action":"$HOME/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation instrument dulcimer","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = dulcimer ]"},
+  "hyprtonation.marimba": {"label":"Marimba","action":"$HOME/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation instrument marimba","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = marimba ]"},
   "hyprtonation.tubular": {"label":"Tubular","action":"$HOME/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation instrument tubular","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = tubular ]"},
   "hyprtonation.handbell": {"label":"Handbell","action":"$HOME/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation instrument handbell","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = handbell ]"}
 }

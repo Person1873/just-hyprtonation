@@ -167,6 +167,10 @@ Latency: "the latency is weird" on the saw. Its onset went from about 30 ms to a
 becomes really easy on this". No crackle reported at the smaller buffer on the author's
 machine; a machine that underruns should raise `-c`.
 
+Marimba (GM 12, tonic C4) added at the human's request ("because I am a sucker for
+crash bandicoot"); heard on the standard sequence and in jam, where the Bridal Chorus
+"obviously has some off key chords", which the tuning stance covers.
+
 ## Settings pane (2026-09-08)
 
 The human, after a Jobs/Woz aside: the layout switch "should be a toggle in the instrument

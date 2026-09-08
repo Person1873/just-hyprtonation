@@ -102,6 +102,7 @@ INSTRUMENTS = {
     "saw":          dict(sustain=True, melodic=81, strike=81, tonic=36, env=dict(attack=3600, release=3200)),   # softened on and off
     "vibraphone":   dict(melodic=11, strike=11, tonic=60, strike_velocity=104),
     "dulcimer":     dict(melodic=15, strike=15, tonic=60),
+    "marimba":      dict(melodic=12, strike=12, tonic=60),
     "tubular":      dict(melodic=14, strike=14, tonic=60),   # tubular bells
     # town-crier handbells: the glockenspiel patch in a room, reverb send up
     "handbell":     dict(melodic=9,  strike=9,  tonic=72, cc=((91, 110),),

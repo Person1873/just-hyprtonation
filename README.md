@@ -70,8 +70,8 @@ o.bind("SUPER + ALT + I", "Hyprtonation settings", "omarchy-shell shell toggle p
 ```
 
 In the pane: Up/Down or J/K walk the instruments, Return picks, L flips the layout, M mutes,
-Escape closes; or click. Instruments: vibraphone, cello, glass, organ, saw, dulcimer, tubular
-bells, handbells. The choice and layout are remembered in `~/.local/state/just-hyprtonation/`.
+Escape closes; or click. Instruments: vibraphone, cello, glass, organ, saw, dulcimer, marimba,
+tubular bells, handbells. The choice and layout are remembered in `~/.local/state/just-hyprtonation/`.
 
 The same from the command line, with the player at
 `~/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation`:
