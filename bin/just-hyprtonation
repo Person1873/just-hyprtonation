@@ -68,6 +68,10 @@ INSTRUMENTS = {
                          reverb=dict(roomsize=0.75, damp=0.3, width=0.8, level=0.9)),
 }
 STRIKE_LEVEL = ((7, 127), (11, 127))
+DEFAULT_REVERB = dict(roomsize=0.2, damp=0.0, width=0.5, level=0.9)   # fluidsynth's own
+# Sound controllers and reverb send back to fluidsynth's channel defaults before an
+# instrument sets its own; "reset all controllers" (CC 121) leaves these alone by spec.
+RESET_CC = ((71, 64), (72, 64), (73, 64), (74, 64), (91, 40))
 MELODIC_CC = ((7, 96), (11, 118))             # headroom so the strike lands above the line
 # One channel per simultaneous note (pitch bend is per channel). Channel 9 is General
 # MIDI's percussion channel whatever program it is given, so it is never used. The cello
@@ -102,6 +106,9 @@ class Dry:
     def __init__(self, tonic, **_):
         self.tonic = tonic
 
+    def set_instrument(self, name):
+        print(f"instrument {name}", flush=True)
+
     def play(self, ratio, seconds, velocity=VELOCITY, strike=False):
         key, bend = midi_and_bend(self.tonic, ratio)
         cents = 1200 * math.log2(ratio)
@@ -116,33 +123,42 @@ class FluidSynth:
     """One fluidsynth process; commands over its stdin shell. Each simultaneous note gets
     its own channel because pitch bend is per channel."""
 
-    def __init__(self, tonic, soundfont, audio_driver="pipewire", gain=0.8, instrument="vibraphone", **_):
+    def __init__(self, tonic, soundfont, audio_driver="pipewire", gain=0.8, instrument="vibraphone",
+                 fixed_tonic=False, **_):
         self.tonic = tonic
-        inst = INSTRUMENTS[instrument]
-        self.velocity = inst.get("velocity", VELOCITY)
-        self.strike_velocity = inst.get("strike_velocity", STRIKE_VELOCITY)
+        self.fixed_tonic = fixed_tonic      # --tonic given: keep it across instrument changes
         self.lock = threading.Lock()
         self.next_channel = 0
+        self.next_strike = 0
         # -n: no MIDI input driver. No -i: the shell stays on and reads our commands from
         # stdin (fluidsynth creates it whenever it is not playing a MIDI file).
         cmd = ["/usr/bin/fluidsynth", "-n", "-a", audio_driver, "-q", "-g", str(gain), soundfont]
         self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                                      stderr=subprocess.DEVNULL, text=True)
-        self.next_strike = 0
-        rev = inst.get("reverb")
-        if rev:
-            self._send("reverb on")
-            for k, v in rev.items():
-                self._send(f"rev_set{k} {v}")
+        self.set_instrument(instrument)
+
+    def set_instrument(self, name):
+        """Program every channel for `name`; safe while notes are sounding (they finish on
+        the old patch). Reverb goes back to fluidsynth's defaults unless the instrument
+        sets its own."""
+        inst = INSTRUMENTS[name]
+        self.instrument = name
+        self.velocity = inst.get("velocity", VELOCITY)
+        self.strike_velocity = inst.get("strike_velocity", STRIKE_VELOCITY)
+        if not self.fixed_tonic:
+            self.tonic = inst["tonic"]
+        self._send("reverb on")
+        for k, v in dict(DEFAULT_REVERB, **inst.get("reverb", {})).items():
+            self._send(f"rev_set{k} {v}")
         for ch in MELODIC_CHANNELS:
             self._send(f"prog {ch} {inst['melodic']}")
             self._send(f"pitch_bend_range {ch} {BEND_RANGE}")
-            for cc, val in MELODIC_CC + inst.get("cc", ()):
+            for cc, val in RESET_CC + MELODIC_CC + inst.get("cc", ()):
                 self._send(f"cc {ch} {cc} {val}")
         for ch in STRIKE_CHANNELS:
             self._send(f"prog {ch} {inst['strike']}")
             self._send(f"pitch_bend_range {ch} {BEND_RANGE}")
-            for cc, val in STRIKE_LEVEL + inst.get("cc", ()) + (STRIKE_SHAPE if inst["shape"] else ()):
+            for cc, val in RESET_CC + STRIKE_LEVEL + inst.get("cc", ()) + (STRIKE_SHAPE if inst["shape"] else ()):
                 self._send(f"cc {ch} {cc} {val}")
 
     def _send(self, line):
@@ -374,6 +390,10 @@ def write_pidfile():
     return path
 
 
+def control_path():
+    return os.path.join(os.path.dirname(pidfile_path()), "instrument")
+
+
 def signal_running(sig):
     """Send `sig` to the instance named by the pidfile, after checking it is ours."""
     path = pidfile_path()
@@ -407,6 +427,14 @@ def main():
     if len(sys.argv) == 2 and sys.argv[1] in ("mute", "stop"):
         signal_running(signal.SIGUSR1 if sys.argv[1] == "mute" else signal.SIGTERM)
         return
+    if len(sys.argv) == 3 and sys.argv[1] == "instrument":
+        if sys.argv[2] not in INSTRUMENTS:
+            raise SystemExit("instruments: " + " ".join(sorted(INSTRUMENTS)))
+        os.makedirs(os.path.dirname(control_path()), mode=0o700, exist_ok=True)
+        with open(control_path(), "w") as f:
+            f.write(sys.argv[2])
+        signal_running(signal.SIGUSR2)
+        return
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--monitor", default=None, help="monitor name whose tags to voice (default: first)")
     ap.add_argument("--backend", default="fluidsynth", choices=["fluidsynth", "dry"])
@@ -424,7 +452,7 @@ def main():
         if not os.path.isfile(args.soundfont):
             raise SystemExit(f"SoundFont not found: {args.soundfont}")
         synth = FluidSynth(tonic, soundfont=args.soundfont, audio_driver=args.audio_driver,
-                           instrument=args.instrument)
+                           instrument=args.instrument, fixed_tonic=args.tonic is not None)
     else:
         synth = Dry(tonic)
 
@@ -435,7 +463,18 @@ def main():
         player.muted = not player.muted
         print("muted" if player.muted else "unmuted", file=sys.stderr, flush=True)
 
+    def change_instrument(*_):
+        try:
+            with open(control_path()) as f:
+                name = f.read().strip()
+        except OSError:
+            return
+        if name in INSTRUMENTS:
+            synth.set_instrument(name)
+            print(f"instrument {name}", file=sys.stderr, flush=True)
+
     signal.signal(signal.SIGUSR1, toggle_mute)
+    signal.signal(signal.SIGUSR2, change_instrument)
     signal.signal(signal.SIGTERM, lambda *_: (synth.close(), sys.exit(0)))
     pidfile = None if args.stdin else write_pidfile()
 

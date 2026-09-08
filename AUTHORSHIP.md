@@ -64,6 +64,16 @@ comparison"), and the vibraphone's raised to 104 from there. The vibraphone beca
 default: "doesn't ring out too much, cello felt a bit pompous". Dulcimer kept ("needs a
 specific aether theme to go with it").
 
+## Instrument switching (2026-09-08)
+
+Asked for by the human ("a way to change instruments without having to re-launch"). The
+`instrument NAME` subcommand writes the name beside the pidfile and sends `SIGUSR2`; the
+instance reprograms every channel in place, restoring fluidsynth's default reverb and the
+sound controllers first (CC 121 leaves those alone by the MIDI spec, so they are reset
+explicitly). The tonic follows the instrument unless `--tonic` was given. Heard live:
+vibraphone, handbell, saw, vibraphone, one tag each, with no relaunch; a bad name prints
+the list and exits 1.
+
 ## Removed
 
 The pw-play fallback (sine tones rendered to files) was removed at the human's direction:

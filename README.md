@@ -31,6 +31,7 @@ bin/just-hyprtonation                       # vibraphone via fluidsynth, first m
 bin/just-hyprtonation --backend dry         # prints what it would play
 bin/just-hyprtonation --muted               # start silent
 bin/just-hyprtonation mute                  # toggle the running instance
+bin/just-hyprtonation instrument handbell   # change the running instance's instrument
 bin/just-hyprtonation stop
 ```
 
