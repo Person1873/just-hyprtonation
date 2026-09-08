@@ -52,27 +52,29 @@ URGENT_RESOLVE = (1, 5 / 4, 3 / 2)
 URGENT_REPEAT = 60.0              # seconds between reminders while ignored
 BEND_RANGE = 2                    # semitones either way, set on every channel
 # Instruments: General MIDI programs (zero-based) for the melodic channels and for the
-# urgency strike, the tonic (MIDI note of tag 1), and whether the strike channels need the
-# envelope reshaped (patches with a slow onset) or already hit.
-STRIKE_SHAPE = ((73, 0), (72, 110), (74, 127), (71, 100))   # attack 0, long release, bright
+# urgency strike, the tonic (MIDI note of tag 1), extra controllers, reverb settings, and
+# `env`: timecent offsets added to the preset's volume-envelope attack and release
+# (1200 per doubling), sent as SoundFont NRPNs. MIDI's sound controllers (CC 71..74) do
+# nothing in fluidsynth with a SoundFont that defines no modulators for them, which
+# FluidR3_GM does not; measured, see AUTHORSHIP.
 INSTRUMENTS = {
-    "cello":        dict(melodic=42, strike=42, tonic=48, shape=True, strike_velocity=127),
-    "glass":        dict(melodic=92, strike=98, tonic=72, shape=False, velocity=56, strike_velocity=70),   # bowed glass / crystal, played softly
-    "organ":        dict(melodic=19, strike=19, tonic=48, shape=True),    # church organ
-    "saw":          dict(melodic=81, strike=81, tonic=36, shape=False),
-    "vibraphone":   dict(melodic=11, strike=11, tonic=60, shape=False, strike_velocity=104),
-    "dulcimer":     dict(melodic=15, strike=15, tonic=60, shape=False),
-    "tubular":      dict(melodic=14, strike=14, tonic=60, shape=False),   # tubular bells
-    # town-crier handbells: the glockenspiel patch left to ring (release up) in a room
-    "handbell":     dict(melodic=9,  strike=9,  tonic=72, shape=False,
-                         cc=((72, 100), (91, 110)),
+    "cello":        dict(melodic=42, strike=42, tonic=48, strike_velocity=127),
+    "glass":        dict(melodic=92, strike=98, tonic=72, velocity=56, strike_velocity=70),   # bowed glass / crystal, played softly
+    "organ":        dict(melodic=19, strike=19, tonic=48),    # church organ
+    "saw":          dict(melodic=81, strike=81, tonic=36, env=dict(attack=5800, release=3200)),   # softened on and off
+    "vibraphone":   dict(melodic=11, strike=11, tonic=60, strike_velocity=104),
+    "dulcimer":     dict(melodic=15, strike=15, tonic=60),
+    "tubular":      dict(melodic=14, strike=14, tonic=60),   # tubular bells
+    # town-crier handbells: the glockenspiel patch in a room, reverb send up
+    "handbell":     dict(melodic=9,  strike=9,  tonic=72, cc=((91, 110),),
                          reverb=dict(roomsize=0.75, damp=0.3, width=0.8, level=0.9)),
 }
 STRIKE_LEVEL = ((7, 127), (11, 127))
 DEFAULT_REVERB = dict(roomsize=0.2, damp=0.0, width=0.5, level=0.9)   # fluidsynth's own
-# Sound controllers and reverb send back to fluidsynth's channel defaults before an
-# instrument sets its own; "reset all controllers" (CC 121) leaves these alone by spec.
-RESET_CC = ((71, 64), (72, 64), (73, 64), (74, 64), (91, 40))
+# Reverb send back to fluidsynth's channel default before an instrument sets its own;
+# "reset all controllers" (CC 121) leaves it alone by spec.
+RESET_CC = ((91, 40),)
+GEN_ATTACK, GEN_RELEASE = 34, 38   # SoundFont generator numbers (volume envelope)
 MELODIC_CC = ((7, 96), (11, 118))             # headroom so the strike lands above the line
 # One channel per simultaneous note (pitch bend is per channel). Channel 9 is General
 # MIDI's percussion channel whatever program it is given, so it is never used. The cello
@@ -151,16 +153,32 @@ class FluidSynth:
         self._send("reverb on")
         for k, v in dict(DEFAULT_REVERB, **inst.get("reverb", {})).items():
             self._send(f"rev_set{k} {v}")
+        env = self.env = inst.get("env", {})
         for ch in MELODIC_CHANNELS:
             self._send(f"prog {ch} {inst['melodic']}")
             self._send(f"pitch_bend_range {ch} {BEND_RANGE}")
             for cc, val in RESET_CC + MELODIC_CC + inst.get("cc", ()):
                 self._send(f"cc {ch} {cc} {val}")
+            self._envelope(ch, env)
         for ch in STRIKE_CHANNELS:
             self._send(f"prog {ch} {inst['strike']}")
             self._send(f"pitch_bend_range {ch} {BEND_RANGE}")
-            for cc, val in RESET_CC + STRIKE_LEVEL + inst.get("cc", ()) + (STRIKE_SHAPE if inst["shape"] else ()):
+            for cc, val in RESET_CC + STRIKE_LEVEL + inst.get("cc", ()):
                 self._send(f"cc {ch} {cc} {val}")
+            self._envelope(ch, env)
+
+    def _envelope(self, ch, env):
+        """Volume-envelope attack and release offsets in timecents, as SoundFont NRPNs
+        (NRPN MSB 120 selects generators; data entry is 8192 + offset/2, LSB first since
+        the MSB commits). Zero offsets restore the preset's own values."""
+        for gen, key in ((GEN_ATTACK, "attack"), (GEN_RELEASE, "release")):
+            data = 8192 + max(-8192, min(8191, int(env.get(key, 0)) // 2))
+            self._send(f"cc {ch} 99 120")
+            self._send(f"cc {ch} 98 {gen}")
+            self._send(f"cc {ch} 38 {data & 127}")
+            self._send(f"cc {ch} 6 {data >> 7}")
+        self._send(f"cc {ch} 99 127")
+        self._send(f"cc {ch} 98 127")
 
     def _send(self, line):
         with self.lock:
@@ -183,6 +201,12 @@ class FluidSynth:
             velocity = min(velocity, self.strike_velocity)
         elif velocity == VELOCITY:
             velocity = self.velocity
+        if self.env.get("attack") and seconds < NOTE_LEN:
+            # scale the swell to the note: a short arpeggio note gets a short onset
+            env = dict(self.env, attack=self.env["attack"] + 1200 * math.log2(seconds / NOTE_LEN))
+            self._envelope(ch, env)
+        elif self.env.get("attack"):
+            self._envelope(ch, self.env)
         self._send(f"noteon {ch} {key} {int(velocity)}")
         threading.Timer(seconds, lambda: self._send(f"noteoff {ch} {key}")).start()
 

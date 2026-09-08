@@ -38,10 +38,12 @@ symmetric and "wanting to go somewhere else"), a half-diminished version, and fi
 diminished seventh on the tag's leading tone, whose every voice is a step from the tag's
 major triad. Then the attack: velocity alone was still a swell (the SoundFont's cello has a
 slow onset at any velocity), a pizzicato patch struck but "reads as a different
-instrument", so the strike channels keep the cello and reshape its envelope with MIDI sound
-controllers (attack 0, longer release, brightness and resonance up) at full volume, doubled
-an octave down, hit twice. Verdict: "hits like a train horn now, which I guess is the
-natural conclusion to the direction I was pushing". Recorded as the intended sound.
+instrument", so the strike channels keep the cello at full volume, doubled an octave
+down, hit twice. Verdict: "hits like a train horn now, which I guess is the natural
+conclusion to the direction I was pushing". Recorded as the intended sound. (This entry
+originally also credited MIDI sound controllers, attack 0 and a longer release, brightness
+and resonance up. They did nothing; see "Corrected" below. The sound the human approved was
+level, doubling and the double hit.)
 
 ## Instruments (2026-09-08)
 
@@ -50,8 +52,8 @@ not warm". Auditioned in turn, each a human judgment: celesta ("sounds like a ch
 toy", at two octaves; dropped), vibraphone ("warm where bells are full but bright"; kept),
 tubular bells ("church bells, not what I'm chasing"; kept), glockenspiel ("that would work
 with reverb and increased sustain"). The `handbell` instrument is that: the glockenspiel
-patch with release raised (CC 72), reverb send up (CC 91) and fluidsynth's reverb room set
-larger. Per-instrument controller and reverb hooks were added to carry it; the other
+patch with reverb send up (CC 91) and fluidsynth's reverb room set larger. (A raised release,
+CC 72, was also sent and did nothing; see "Corrected".) Per-instrument controller and reverb hooks were added to carry it; the other
 instruments keep fluidsynth's default reverb. The plain glockenspiel was then dropped as
 indistinguishable from the handbell back to back.
 
@@ -82,6 +84,24 @@ instrument through bash `checked:` conditions (verified in the shell's `MenuMode
 runs `when:` and `checked:` as bash). Tested: `next`/`prev`/`status` on the running
 instance; the menu rows and the `SUPER + ALT + I` key were installed on the author's machine
 and the config reloaded clean.
+
+## Corrected (2026-09-08)
+
+Asked for "a swell and decay" on the saw, the AI sent MIDI sound controllers (CC 73 attack,
+CC 72 release) and the human heard no change: "saw just seems like it's on or off". Measured
+by rendering the same note to files at controller values 0 and 127: byte-identical
+envelopes, for CC 71 and 74 too. fluidsynth's default modulators cover velocity, CC 7, 10,
+11, 91, 93 and pitch bend; the sound controllers act only if the SoundFont defines
+modulators for them, and FluidR3_GM does not. So every earlier use of them (the cello
+strike's "reshaped envelope", the handbell's "release up") was inert, and what the human
+approved in those rounds was the rest: velocity, channel level, the octave doubling, the
+double hit, the reverb. The entries above are amended, not rewritten. Envelope changes now
+go through SoundFont NRPNs (generator 34 attack, 38 release, as timecent offsets on the
+preset's own values), verified the same way: a +12000 offset spread the saw's onset over
+about a second and held its tail. The saw's onset and tail were then set by ear over three
+rounds ("probably a little too far", "the arpeggio notes never hit full volume", "it feels
+super legato now") to about 30 ms and 0.3 s: "sounds right to me now". A short note's swell
+is scaled to its length so arpeggio notes reach full level.
 
 ## Removed
 
