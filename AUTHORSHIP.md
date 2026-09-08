@@ -114,6 +114,23 @@ and fired note, chord and transpose events at the running player. The 0 key firs
 the octave; the human noticed ("in jam mode, 0=8") and it is now the tenth scale degree,
 which is where the laptop layout already put it.
 
+The quarter-tones were judged flat ("F3 & F7 sound flat to me if we assume the blacks are
+a major scale"), so the laptop layout now completes the black keys' own just major scale
+instead: F3 is 125/96, the major third above F1, and F7 125/64, its major seventh; "works
+as expected now". The fourth of that scale is 22 cents wide because F# stays 45/32.
+
+Sustain: "for cello, saw, and organ, the note should cut off when we release the key".
+Key down and key up are separate Hyprland binds; a sustaining instrument (flagged in the
+table, glass too) holds the note between them and struck ones ignore the up. The human
+found that rolling off a key while modifiers changed left notes hanging: a release bind
+matches only the modifiers held at the press. The up bind now names the physical key,
+ignores modifiers, and frees whatever that key started; leaving the submap releases all;
+a 12 s cap catches anything else. The ignore-modifiers flag is not shown by `hyprctl
+binds`, so it is verified only by the config accepting it and by the human's keyboard.
+
+The human stopped here: "I'm going to stop short of having you build a looper. the fun
+bit is done for all the polish it needs".
+
 ## Corrected (2026-09-08)
 
 Asked for "a swell and decay" on the saw, the AI sent MIDI sound controllers (CC 73 attack,

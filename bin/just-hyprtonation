@@ -45,17 +45,14 @@ def white(i):
 
 # Layouts for the F-keys. "piano": the twelve sharps in order. "laptop": the F-keys sit
 # evenly above the digits, so F<n> is the key between white n and white n+1; where the
-# piano has no black key there (E-F, B-C) the note is the quarter-tone between them.
+# piano has no black key there (E-F, B-C) the note completes the black keys' own major
+# scale: F3 is the just major third above F1 and F7 the major seventh, so F1..F7 are a
+# just major scale on the sharpened tonic.
 def _laptop():
-    out = []
-    for n in range(1, 13):
-        lo, hi = white(n), white(n + 1)
-        step = (n - 1) % 7
-        out.append(math.sqrt(lo * hi) if step in (2, 6) else BLACK_BY_GAP[step] * 2 ** ((n - 1) // 7))
-    return out
+    return [BLACK_BY_GAP[(n - 1) % 7] * 2 ** ((n - 1) // 7) for n in range(1, 13)]
 
 
-BLACK_BY_GAP = {0: 25 / 24, 1: 75 / 64, 3: 45 / 32, 4: 25 / 16, 5: 225 / 128}
+BLACK_BY_GAP = {0: 25 / 24, 1: 75 / 64, 2: 125 / 96, 3: 45 / 32, 4: 25 / 16, 5: 225 / 128, 6: 125 / 64}
 LAYOUTS = {"piano": BLACK, "laptop": None}
 RATIOS = {}
 
@@ -98,10 +95,10 @@ BEND_RANGE = 2                    # semitones either way, set on every channel
 # nothing in fluidsynth with a SoundFont that defines no modulators for them, which
 # FluidR3_GM does not; measured, see AUTHORSHIP.
 INSTRUMENTS = {
-    "cello":        dict(melodic=42, strike=42, tonic=48, strike_velocity=127),
-    "glass":        dict(melodic=92, strike=98, tonic=72, velocity=56, strike_velocity=70),   # bowed glass / crystal, played softly
-    "organ":        dict(melodic=19, strike=19, tonic=48),    # church organ
-    "saw":          dict(melodic=81, strike=81, tonic=36, env=dict(attack=5800, release=3200)),   # softened on and off
+    "cello":        dict(sustain=True, melodic=42, strike=42, tonic=48, strike_velocity=127),
+    "glass":        dict(sustain=True, melodic=92, strike=98, tonic=72, velocity=56, strike_velocity=70),   # bowed glass / crystal, played softly
+    "organ":        dict(sustain=True, melodic=19, strike=19, tonic=48),    # church organ
+    "saw":          dict(sustain=True, melodic=81, strike=81, tonic=36, env=dict(attack=5800, release=3200)),   # softened on and off
     "vibraphone":   dict(melodic=11, strike=11, tonic=60, strike_velocity=104),
     "dulcimer":     dict(melodic=15, strike=15, tonic=60),
     "tubular":      dict(melodic=14, strike=14, tonic=60),   # tubular bells
@@ -153,11 +150,18 @@ class Dry:
     def set_instrument(self, name):
         print(f"instrument {name}", flush=True)
 
+    sustain = True
+
     def play(self, ratio, seconds, velocity=VELOCITY, strike=False):
         key, bend = midi_and_bend(self.tonic + self.transpose, ratio)
         cents = 1200 * math.log2(ratio)
+        length = "held" if seconds is None else f"for {seconds:.2f}s"
         print(f"play ratio={ratio:.5f} ({cents:7.1f} cents) key={key} bend={bend} "
-              f"vel={velocity} for {seconds:.2f}s{' strike' if strike else ''}", flush=True)
+              f"vel={velocity} {length}{' strike' if strike else ''}", flush=True)
+        return (0, key)
+
+    def release(self, handle):
+        print(f"release key={handle[1]}", flush=True)
 
     def close(self):
         pass
@@ -195,6 +199,7 @@ class FluidSynth:
         self._send("reverb on")
         for k, v in dict(DEFAULT_REVERB, **inst.get("reverb", {})).items():
             self._send(f"rev_set{k} {v}")
+        self.sustain = bool(inst.get("sustain"))
         env = self.env = inst.get("env", {})
         for ch in MELODIC_CHANNELS:
             self._send(f"prog {ch} {inst['melodic']}")
@@ -243,14 +248,20 @@ class FluidSynth:
             velocity = min(velocity, self.strike_velocity)
         elif velocity == VELOCITY:
             velocity = self.velocity
-        if self.env.get("attack") and seconds < NOTE_LEN:
+        if self.env.get("attack") and seconds is not None and seconds < NOTE_LEN:
             # scale the swell to the note: a short arpeggio note gets a short onset
             env = dict(self.env, attack=self.env["attack"] + 1200 * math.log2(seconds / NOTE_LEN))
             self._envelope(ch, env)
         elif self.env.get("attack"):
             self._envelope(ch, self.env)
         self._send(f"noteon {ch} {key} {int(velocity)}")
+        if seconds is None:                 # held: the caller releases
+            return (ch, key)
         threading.Timer(seconds, lambda: self._send(f"noteoff {ch} {key}")).start()
+
+    def release(self, handle):
+        ch, key = handle
+        self._send(f"noteoff {ch} {key}")
 
     def close(self):
         self._send("reset")
@@ -274,6 +285,7 @@ class Player:
         self.occupied = set()
         self.urgent = set()
         self.urgent_timers = {}
+        self.held = {}          # jam mode: (kind, tag) -> synth handles while a key is down
         self.lock = threading.Lock()
 
     def _play(self, ratio, seconds, velocity=VELOCITY, strike=False):
@@ -363,12 +375,74 @@ class Player:
 
     # -- protocol -----------------------------------------------------------------------
 
+    HOLD_CAP = 12.0     # a held note is released anyway after this, in case a key-up was lost
+
+    def _jam_ratios(self, what, tag):
+        if what.startswith("degree"):
+            return [white(tag)] if what == "degree" else [white(tag), white(tag + 2), white(tag + 4)]
+        if tag not in RATIOS:
+            return []
+        return [RATIOS[tag]] if what == "note" else list(degree_chord(tag))
+
+    def _hold(self, keyid, what, tag):
+        """Key down: sustaining instruments hold until `_release`; others play their length.
+        `keyid` is the physical key, so any release of that key frees what it started even
+        if the modifiers changed in between."""
+        ratios = self._jam_ratios(what, tag)
+        length = CHORD_LEN if len(ratios) > 1 else NOTE_LEN
+        if self.muted or not ratios:
+            return
+        if not self.synth.sustain:
+            for r in ratios:
+                self._play(r, length)
+            return
+        with self.lock:
+            self._release_locked(keyid)
+            handles = [self.synth.play(r, None) for r in ratios]
+            self.held[keyid] = handles
+        threading.Timer(self.HOLD_CAP, lambda: self._release(keyid, handles)).start()
+
+    def _release(self, keyid, only=None):
+        with self.lock:
+            self._release_locked(keyid, only)
+
+    def _release_locked(self, keyid, only=None):
+        handles = self.held.get(keyid)
+        if handles is None or (only is not None and handles is not only):
+            return
+        del self.held[keyid]
+        for h in handles:
+            self.synth.release(h)
+
+    def _release_all(self):
+        with self.lock:
+            for keyid in list(self.held):
+                self._release_locked(keyid)
+
     def jam(self, text):
         """Jam mode: `note|N` plays tag N's note, `chord|N` the triad on its scale degree,
-        `degree|N` / `degreechord|N` the same for scale degree N (the 0 key is degree 10),
+        `degree|N` / `degreechord|N` the same for scale degree N (the 0 key is degree 10);
+        `on|K|<kind>|N` / `off|K` are key down and key up on physical key K: a sustaining
+        instrument holds the note in between, a struck one plays its length on the down;
+        `alloff` releases everything.
         `transpose|S` moves the key by S semitones and sounds the new tonic. Nothing else
         changes; the keys are bound inside a Hyprland submap that shadows the tag keys."""
         what, _, arg = text.partition("|")
+        if what == "alloff":
+            self._release_all()
+            return
+        if what in ("on", "off"):
+            # on|<key>|<kind>|<n>  and  off|<key>
+            parts = arg.split("|")
+            keyid = parts[0][:16]
+            if what == "off":
+                self._release(keyid)
+                return
+            if len(parts) != 3 or not parts[2].isdigit() or not 1 <= int(parts[2]) <= max(self.ntags, 14):
+                return
+            if parts[1] in ("note", "chord", "degree", "degreechord"):
+                self._hold(keyid, parts[1], int(parts[2]))
+            return
         if what == "transpose":
             try:
                 step = int(arg)

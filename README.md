@@ -23,8 +23,8 @@ Tags 10..21 (the F-keys in hypr-dwm-land's dwm map): 25/24, 75/64, 45/32, 25/16,
 25/12, 75/32, 45/16, 25/8, 225/64, 25/6, 75/16.
 
 `--layout laptop` tunes the F-keys to where they sit: F*n* is the key between white *n* and
-*n*+1, the sharp where the piano has one and the quarter-tone between the whites where it
-has none (F3, F7, F10).
+*n*+1, the sharp where the piano has one; where it has none (F3, F7, F10) the note completes
+the black keys' own scale, so F1..F7 are a just major scale on the sharpened tonic.
 
 Issues and PRs adjusting tuning will be closed as "Won't fix".
 
@@ -52,8 +52,9 @@ o.bind("SUPER + ALT + I", "Hyprtonation instrument", "~/just-hyprtonation/bin/ju
 ## Jam
 
 `SUPER + ALT + M` enters a Hyprland submap in which the tag keys play and move nothing:
-1..9 and F1..F12 sound the tag, 0 the tenth white key, SHIFT + key the triad on that scale degree, `-` and `=`
-move the key by a semitone (a tone with SHIFT), ESCAPE leaves. From
+1..9 and F1..F12 sound the tag, 0 the tenth white key, SHIFT + key the triad on that scale
+degree; on the cello, organ, saw and glass a note lasts as long as the key is down. `-` and
+`=` move the key by a semitone (a tone with SHIFT), ESCAPE leaves. From
 `~/.config/hypr/bindings.lua`, after the hypr-dwm-land keys:
 
 ```lua
