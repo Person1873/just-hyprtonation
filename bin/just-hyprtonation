@@ -10,7 +10,7 @@ resolves onto the tag's own note when the tag is viewed.
 Backends: fluidsynth (a SoundFont cello, pitch-bent onto the just ratios) and dry (prints
 what it would play; for tests).
 
-    just-hyprtonation [--monitor NAME] [--instrument cello|glass|organ|square|vibraphone|dulcimer|bells|glockenspiel]
+    just-hyprtonation [--monitor NAME] [--instrument cello|glass|organ|square|vibraphone|dulcimer|celesta|tubular|glockenspiel]
                       [--backend fluidsynth|dry] [--soundfont PATH] [--tonic MIDI] [--muted] [--stdin]
     just-hyprtonation mute | stop        signal the running instance (pidfile in XDG_RUNTIME_DIR)
 SIGUSR1 toggles mute. --stdin reads protocol lines from standard input instead of the socket.
@@ -60,7 +60,8 @@ INSTRUMENTS = {
     "square":       dict(melodic=80, strike=80, tonic=60, shape=False),
     "vibraphone":   dict(melodic=11, strike=11, tonic=60, shape=False),
     "dulcimer":     dict(melodic=15, strike=15, tonic=60, shape=False),
-    "bells":        dict(melodic=14, strike=14, tonic=60, shape=False),   # tubular bells
+    "celesta":      dict(melodic=8,  strike=8,  tonic=72, shape=False),   # the bell organ
+    "tubular":      dict(melodic=14, strike=14, tonic=60, shape=False),   # tubular bells
     "glockenspiel": dict(melodic=9,  strike=9,  tonic=72, shape=False),
 }
 STRIKE_LEVEL = ((7, 127), (11, 127))
