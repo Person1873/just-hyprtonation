@@ -40,7 +40,7 @@ On Omarchy, from `~/.config/hypr/autostart.lua`:
 o.launch_on_start("~/just-hyprtonation/bin/just-hyprtonation")
 ```
 
-Options: `--instrument cello|glass|organ|square|vibraphone|dulcimer|celesta|tubular|glockenspiel`
+Options: `--instrument cello|glass|organ|square|vibraphone|dulcimer|tubular|glockenspiel|handbell`
 (default cello), `--monitor NAME`, `--tonic MIDI` (default: the instrument's), `--soundfont PATH` (default
 `/usr/share/soundfonts/FluidR3_GM.sf2`), `--audio-driver` (default `pipewire`), `--stdin`.
 

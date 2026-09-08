@@ -43,6 +43,18 @@ controllers (attack 0, longer release, brightness and resonance up) at full volu
 an octave down, hit twice. Verdict: "hits like a train horn now, which I guess is the
 natural conclusion to the direction I was pushing". Recorded as the intended sound.
 
+## Instruments (2026-09-08)
+
+The human asked for "a bell organ: something that rings out but is light and bright, full
+not warm". Auditioned in turn, each a human judgment: celesta ("sounds like a children's
+toy", at two octaves; dropped), vibraphone ("warm where bells are full but bright"; kept),
+tubular bells ("church bells, not what I'm chasing"; kept), glockenspiel ("that would work
+with reverb and increased sustain"). The `handbell` instrument is that: the glockenspiel
+patch with release raised (CC 72), reverb send up (CC 91) and fluidsynth's reverb room set
+larger. Per-instrument controller and reverb hooks were added to carry it; the other
+instruments keep fluidsynth's default reverb. The dry run of each was the same sequence: one
+tag, a two-tag chord, view all, retreat.
+
 ## Removed
 
 The pw-play fallback (sine tones rendered to files) was removed at the human's direction:
