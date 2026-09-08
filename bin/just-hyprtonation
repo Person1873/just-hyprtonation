@@ -322,6 +322,21 @@ class Player:
 
     # -- protocol -----------------------------------------------------------------------
 
+    def jam(self, text):
+        """Jam mode: `note|N` plays tag N's note, `chord|N` its major triad. Nothing else
+        changes; the keys are bound inside a Hyprland submap that shadows the tag keys."""
+        what, _, arg = text.partition("|")
+        if not arg.isdigit() or not 1 <= int(arg) <= self.ntags:
+            return
+        r = RATIOS.get(int(arg))
+        if r is None:
+            return
+        if what == "note":
+            self._play(r, NOTE_LEN)
+        elif what == "chord":
+            for step in URGENT_RESOLVE:
+                self._play(r * step, CHORD_LEN)
+
     def line(self, text):
         """Consume one `<monitor>|v=..|o=..|u=..|f=..` body (prefix already stripped)."""
         fields = text.split("|")
@@ -358,6 +373,7 @@ class Player:
 # ---------------------------------------------------------------------------------------
 
 PREFIX = "custom>>hyprdwmland>>"
+JAM_PREFIX = "custom>>hyprtonation>>"   # jam mode: note|N, chord|N (see hypr/jam.lua)
 MAX_LINE = 4096
 
 
@@ -369,7 +385,7 @@ def socket_path():
     return os.path.join(run, "hypr", sig, ".socket2.sock")
 
 
-def follow(lines_out, monitor):
+def follow(lines_out, monitor, jam_out=None):
     """Yield protocol bodies for `monitor` from the event socket, reconnecting on loss."""
     while True:
         try:
@@ -395,6 +411,8 @@ def follow(lines_out, monitor):
                             body = line[len(PREFIX):]
                             if body.split("|", 1)[0] == monitor:
                                 lines_out(body)
+                        elif jam_out and line.startswith(JAM_PREFIX):
+                            jam_out(line[len(JAM_PREFIX):])
         except (OSError, ConnectionError):
             time.sleep(1.0)
 
@@ -593,7 +611,7 @@ def main():
             monitor = args.monitor or default_monitor()
             if not monitor:
                 raise SystemExit("could not determine a monitor; pass --monitor")
-            follow(player.line, monitor)
+            follow(player.line, monitor, player.jam)
     finally:
         synth.close()
         if pidfile:

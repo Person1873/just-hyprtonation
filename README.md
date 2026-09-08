@@ -45,6 +45,20 @@ o.launch_on_start("~/just-hyprtonation/bin/just-hyprtonation")
 o.bind("SUPER + ALT + I", "Hyprtonation instrument", "~/just-hyprtonation/bin/just-hyprtonation pick")
 ```
 
+## Jam
+
+`SUPER + ALT + M` enters a Hyprland submap in which the tag keys play and move nothing:
+1..9, 0 and F1..F12 sound the tag, SHIFT + key its triad, ESCAPE leaves. From
+`~/.config/hypr/bindings.lua`, after the hypr-dwm-land keys:
+
+```lua
+dofile(os.getenv("HOME") .. "/just-hyprtonation/hypr/jam.lua")
+```
+
+The key is at the top of [hypr/jam.lua](hypr/jam.lua).
+
+## Omarchy menu
+
 [examples/omarchy-menu.jsonc](examples/omarchy-menu.jsonc) adds a Hyprtonation submenu to
 the Omarchy menu, with mute and one row per instrument, the current one ticked; merge it into
 `~/.config/omarchy/extensions/omarchy-menu.jsonc`.

@@ -90,6 +90,18 @@ you last had picked"): a state file under `XDG_STATE_HOME`, written by `instrume
 and by an explicit `--instrument`. Tested: start, pick handbell, stop, start again reports
 handbell; an explicit `--instrument saw` both wins and becomes the saved choice.
 
+## Jam mode (2026-09-08)
+
+The human's idea: "there probably needs to be a jam mode where the keys just play without
+throwing shit around". Built as a Hyprland submap (`hypr/jam.lua`) rather than anything in
+the player: inside it the bare tag keys send `hyprtonation>>note|N` (SHIFT: `chord|N`) on
+the event socket, which the player already reads, and the submap shadows the tag binds so
+nothing moves. Semantics of `hl.define_submap` and bare-key binds were taken from the
+Hyprland wiki's submaps page and the 0.56.2 source (`LuaBindingsToplevel.cpp`), not recalled.
+Verified: config reloads clean, the submap lists 46 binds, the entry key is registered, and
+note and chord events fired at the socket sound. The submap was not entered from the
+keyboard by the AI; the human did that.
+
 ## Corrected (2026-09-08)
 
 Asked for "a swell and decay" on the saw, the AI sent MIDI sound controllers (CC 73 attack,
