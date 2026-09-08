@@ -50,7 +50,8 @@ the Omarchy menu, with mute and one row per instrument, the current one ticked; 
 `~/.config/omarchy/extensions/omarchy-menu.jsonc`.
 
 Options: `--instrument vibraphone|cello|glass|organ|saw|dulcimer|tubular|handbell`
-(default vibraphone), `--monitor NAME`, `--tonic MIDI` (default: the instrument's), `--soundfont PATH` (default
+(default: the last one picked, kept in `~/.local/state/just-hyprtonation/instrument`; vibraphone
+before any pick), `--monitor NAME`, `--tonic MIDI` (default: the instrument's), `--soundfont PATH` (default
 `/usr/share/soundfonts/FluidR3_GM.sf2`), `--audio-driver` (default `pipewire`), `--stdin`.
 
 It reads hypr-dwm-land's line on Hyprland's event socket

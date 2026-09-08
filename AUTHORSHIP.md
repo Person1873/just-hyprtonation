@@ -85,6 +85,11 @@ runs `when:` and `checked:` as bash). Tested: `next`/`prev`/`status` on the runn
 instance; the menu rows and the `SUPER + ALT + I` key were installed on the author's machine
 and the config reloaded clean.
 
+The pick is remembered across relaunches (the human: "on relaunch it should remember what
+you last had picked"): a state file under `XDG_STATE_HOME`, written by `instrument`/`pick`
+and by an explicit `--instrument`. Tested: start, pick handbell, stop, start again reports
+handbell; an explicit `--instrument saw` both wins and becomes the saved choice.
+
 ## Corrected (2026-09-08)
 
 Asked for "a swell and decay" on the saw, the AI sent MIDI sound controllers (CC 73 attack,

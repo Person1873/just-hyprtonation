@@ -11,6 +11,7 @@ Backends: fluidsynth (a SoundFont cello, pitch-bent onto the just ratios) and dr
 what it would play; for tests).
 
     just-hyprtonation [--monitor NAME] [--instrument vibraphone|cello|glass|organ|saw|dulcimer|tubular|handbell]
+                      (default: the last one picked, else vibraphone)
                       [--backend fluidsynth|dry] [--soundfont PATH] [--tonic MIDI] [--muted] [--stdin]
     just-hyprtonation mute | stop        signal the running instance (pidfile in XDG_RUNTIME_DIR)
     just-hyprtonation instrument NAME|next|prev | pick | status   change or show its instrument
@@ -425,6 +426,30 @@ def write_control(name):
         f.write(name)
 
 
+def saved_path():
+    base = os.environ.get("XDG_STATE_HOME") or os.path.join(os.path.expanduser("~"), ".local", "state")
+    return os.path.join(base, "just-hyprtonation", "instrument")
+
+
+def save_instrument(name):
+    """Remember the choice across relaunches."""
+    try:
+        os.makedirs(os.path.dirname(saved_path()), mode=0o700, exist_ok=True)
+        with open(saved_path(), "w") as f:
+            f.write(name)
+    except OSError:
+        pass
+
+
+def saved_instrument():
+    try:
+        with open(saved_path()) as f:
+            name = f.read().strip()
+    except OSError:
+        return None
+    return name if name in INSTRUMENTS else None
+
+
 def current_instrument():
     try:
         with open(control_path()) as f:
@@ -503,18 +528,24 @@ def main():
             raise SystemExit("instruments: " + " ".join(names) + " | next | prev")
         write_control(want)
         signal_running(signal.SIGUSR2)
+        save_instrument(want)
         return
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--monitor", default=None, help="monitor name whose tags to voice (default: first)")
     ap.add_argument("--backend", default="fluidsynth", choices=["fluidsynth", "dry"])
     ap.add_argument("--soundfont", default="/usr/share/soundfonts/FluidR3_GM.sf2")
     ap.add_argument("--audio-driver", default="pipewire")
-    ap.add_argument("--instrument", default="vibraphone", choices=sorted(INSTRUMENTS))
+    ap.add_argument("--instrument", default=None, choices=sorted(INSTRUMENTS),
+                    help="default: the last one picked, else vibraphone")
     ap.add_argument("--tonic", type=int, default=None, help="MIDI note of tag 1 (default: the instrument's)")
     ap.add_argument("--ntags", type=int, default=21)
     ap.add_argument("--muted", action="store_true", help="start muted; SIGUSR1 toggles")
     ap.add_argument("--stdin", action="store_true", help="read protocol bodies from stdin (tests)")
     args = ap.parse_args()
+    if args.instrument is None:
+        args.instrument = saved_instrument() or "vibraphone"
+    elif not args.stdin:
+        save_instrument(args.instrument)
 
     tonic = args.tonic if args.tonic is not None else INSTRUMENTS[args.instrument]["tonic"]
     if args.backend == "fluidsynth":
