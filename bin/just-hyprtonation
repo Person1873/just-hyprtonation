@@ -16,6 +16,7 @@ what it would play; for tests).
     just-hyprtonation mute | stop        signal the running instance (pidfile in XDG_RUNTIME_DIR)
     just-hyprtonation instrument NAME|next|prev | pick | status   change or show its instrument
     just-hyprtonation layout piano|laptop   F-key tuning, kept for next start
+Selecting the view already shown sounds it again (hypr-dwm-land's reselect event).
 SIGUSR1 toggles mute. --stdin reads protocol lines from standard input instead of the socket.
 """
 import argparse
@@ -475,7 +476,17 @@ class Player:
             for r in degree_chord(tag):
                 self._play(r, CHORD_LEN)
 
-    def line(self, text):
+    def reselected(self, viewed):
+        """The view already shown was selected again: answer it anyway, so a key press
+        always sounds. The all view arpeggiates as it does when entered."""
+        if not viewed:
+            return
+        if len(viewed) >= self.ntags:
+            self.arpeggio(sorted(self.occupied))
+        else:
+            self.chord(sorted(viewed))
+
+    def line(self, text, reselect=False):
         """Consume one `<monitor>|v=..|o=..|u=..|f=..` body (prefix already stripped)."""
         fields = text.split("|")
         data = {}
@@ -498,6 +509,10 @@ class Player:
             return out
 
         viewed = ints(data.get("v", ""))
+        if reselect:
+            with self.lock:
+                self.reselected(viewed)
+            return
         occupied = ints(data.get("o", ""), split_counts=True)
         urgent = ints(data.get("u", ""))
         with self.lock:
@@ -512,6 +527,7 @@ class Player:
 
 PREFIX = "custom>>hyprdwmland>>"
 JAM_PREFIX = "custom>>hyprtonation>>"   # jam mode: note|N, chord|N (see hypr/jam.lua)
+RESELECT_PREFIX = "custom>>hyprdwmland-reselect>>"   # the view already shown was selected again
 MAX_LINE = 4096
 
 
@@ -551,6 +567,10 @@ def follow(lines_out, monitor, jam_out=None):
                                 lines_out(body)
                         elif jam_out and line.startswith(JAM_PREFIX):
                             jam_out(line[len(JAM_PREFIX):])
+                        elif line.startswith(RESELECT_PREFIX):
+                            body = line[len(RESELECT_PREFIX):]
+                            if body.split("|", 1)[0] == monitor:
+                                lines_out(body, reselect=True)
         except (OSError, ConnectionError):
             time.sleep(1.0)
 

@@ -23,7 +23,8 @@ omarchy plugin add https://github.com/Person1873/just-hyprtonation.git --enable
 ```
 
 It needs hypr-dwm-land running, and reads its line on Hyprland's event socket
-(`custom>>hyprdwmland>><monitor>|v=…|o=…|u=…|f=…`). It changes nothing.
+(`custom>>hyprdwmland>><monitor>|v=…|o=…|u=…|f=…`) and its reselect event, so the key of
+the view you are already on still answers. It changes nothing.
 
 ## Urgency and `focus_on_activate`
 

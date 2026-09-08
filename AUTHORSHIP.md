@@ -171,6 +171,13 @@ Marimba (GM 12, tonic C4) added at the human's request ("because I am a sucker f
 crash bandicoot"); heard on the standard sequence and in jam, where the Bridal Chorus
 "obviously has some off key chords", which the tuning stance covers.
 
+Reselection (2026-09-08): "when I type a workspace number, and it's the one I'm already
+on, it doesn't play the note, which immediately makes me feel like it didn't work". The
+bar line does not change in that case, so hypr-dwm-land gained a separate event,
+`hyprdwmland-reselect>><monitor>|v=…`, sent when a view op lands on the view already
+shown; the player sounds that view on it (the all view arpeggiates). Verified on the
+socket: two reselects of view 1,3,5 produced two reselect events and, by ear, two chords.
+
 ## Settings pane (2026-09-08)
 
 The human, after a Jobs/Woz aside: the layout switch "should be a toggle in the instrument
