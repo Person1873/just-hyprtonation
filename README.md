@@ -13,6 +13,18 @@ An urgent window is heard at the edge of attention, by pitch, without a glance a
 and the figure does not finish until you go there. Viewing all is a census of the desk in
 half a second.
 
+## Install
+
+An Omarchy plugin of kind `service`: enabling it starts the player, disabling it stops it.
+
+```sh
+omarchy pkg add fluidsynth soundfont-fluid      # the synthesizer; not installed by the plugin
+omarchy plugin add https://github.com/Person1873/just-hyprtonation.git --enable
+```
+
+It needs hypr-dwm-land running, and reads its line on Hyprland's event socket
+(`custom>>hyprdwmland>><monitor>|v=…|o=…|u=…|f=…`). It changes nothing.
+
 ## Tuning
 
 | tag | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
@@ -22,32 +34,38 @@ half a second.
 Tags 10..21 (the F-keys in hypr-dwm-land's dwm map): 25/24, 75/64, 45/32, 25/16, 225/128,
 25/12, 75/32, 45/16, 25/8, 225/64, 25/6, 75/16.
 
-`--layout laptop` tunes the F-keys to where they sit: F*n* is the key between white *n* and
-*n*+1, the sharp where the piano has one; where it has none (F3, F7, F10) the note completes
-the black keys' own scale, so F1..F7 are a just major scale on the sharpened tonic.
+`just-hyprtonation layout laptop` tunes the F-keys to where they sit on a laptop: F*n* is the
+key between white *n* and *n*+1, the sharp where the piano has one; where it has none (F3, F7,
+F10) the note completes the black keys' own scale, so F1..F7 are a just major scale on the
+sharpened tonic.
 
 Issues and PRs adjusting tuning will be closed as "Won't fix".
 
-## Running
+## Instruments
+
+Vibraphone, cello, glass, organ, saw, dulcimer, tubular bells, handbells. The player's command
+is `~/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation`; the running
+instance takes:
 
 ```sh
-bin/just-hyprtonation                       # vibraphone via fluidsynth, first monitor
-bin/just-hyprtonation --backend dry         # prints what it would play
-bin/just-hyprtonation --muted               # start silent
-bin/just-hyprtonation mute                  # toggle the running instance
-bin/just-hyprtonation instrument handbell   # change the running instance's instrument
-bin/just-hyprtonation instrument next       # or prev
-bin/just-hyprtonation pick                  # choose from a menu (Omarchy)
-bin/just-hyprtonation status                # the current instrument
-bin/just-hyprtonation stop
+just-hyprtonation instrument handbell   # or next | prev
+just-hyprtonation pick                  # choose from a menu (Omarchy)
+just-hyprtonation status                # the current instrument
+just-hyprtonation layout piano|laptop
+just-hyprtonation mute                  # toggle
 ```
 
-On Omarchy, from `~/.config/hypr/autostart.lua` and `bindings.lua`:
+The instrument and layout are remembered in `~/.local/state/just-hyprtonation/`.
+
+A key for the picker, in `~/.config/hypr/bindings.lua`:
 
 ```lua
-o.launch_on_start("~/just-hyprtonation/bin/just-hyprtonation")
-o.bind("SUPER + ALT + I", "Hyprtonation instrument", "~/just-hyprtonation/bin/just-hyprtonation pick")
+o.bind("SUPER + ALT + I", "Hyprtonation instrument", "~/.config/omarchy/plugins/person1873.just-hyprtonation/bin/just-hyprtonation pick")
 ```
+
+[examples/omarchy-menu.jsonc](examples/omarchy-menu.jsonc) adds a Hyprtonation submenu to
+the Omarchy menu, with mute and one row per instrument, the current one ticked; merge it into
+`~/.config/omarchy/extensions/omarchy-menu.jsonc`.
 
 ## Jam
 
@@ -58,30 +76,34 @@ degree; on the cello, organ, saw and glass a note lasts as long as the key is do
 `~/.config/hypr/bindings.lua`, after the hypr-dwm-land keys:
 
 ```lua
-dofile(os.getenv("HOME") .. "/just-hyprtonation/hypr/jam.lua")
+dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/person1873.just-hyprtonation/hypr/jam.lua")
 ```
 
 The key is at the top of [hypr/jam.lua](hypr/jam.lua).
 
-## Omarchy menu
+## Without the plugin
 
-[examples/omarchy-menu.jsonc](examples/omarchy-menu.jsonc) adds a Hyprtonation submenu to
-the Omarchy menu, with mute and one row per instrument, the current one ticked; merge it into
-`~/.config/omarchy/extensions/omarchy-menu.jsonc`.
+`bin/just-hyprtonation` runs on its own from any checkout, for a bar other than the Omarchy
+shell or for `o.launch_on_start` in `autostart.lua`. Options: `--instrument`, `--layout`,
+`--monitor NAME`, `--tonic MIDI`, `--soundfont PATH` (default
+`/usr/share/soundfonts/FluidR3_GM.sf2`), `--audio-driver` (default `pipewire`),
+`--backend dry` (prints what it would play), `--muted`, `stop`.
 
-Options: `--instrument vibraphone|cello|glass|organ|saw|dulcimer|tubular|handbell`
-(default: the last one picked, kept in `~/.local/state/just-hyprtonation/instrument`; vibraphone
-before any pick), `--monitor NAME`, `--tonic MIDI` (default: the instrument's), `--soundfont PATH` (default
-`/usr/share/soundfonts/FluidR3_GM.sf2`), `--audio-driver` (default `pipewire`), `--stdin`.
+## Removing
 
-It reads hypr-dwm-land's line on Hyprland's event socket
-(`custom>>hyprdwmland>><monitor>|v=…|o=…|u=…|f=…`) and changes nothing.
+```sh
+omarchy plugin remove person1873.just-hyprtonation
+# then delete the jam `dofile` line and the picker bind from ~/.config/hypr/bindings.lua,
+# and the "hyprtonation" rows from ~/.config/omarchy/extensions/omarchy-menu.jsonc, if added.
+rm -r ~/.local/state/just-hyprtonation          # the remembered instrument and layout
+```
 
 ## Dependencies
 
-- hypr-dwm-land.
-- `fluidsynth` and `soundfont-fluid` (Arch `extra`); on Omarchy
-  `omarchy pkg add fluidsynth soundfont-fluid`. Not installed by this program.
+- hypr-dwm-land, running.
+- `fluidsynth` and `soundfont-fluid` (Arch `extra`); `omarchy pkg add fluidsynth soundfont-fluid`.
+  Not installed by this plugin.
+- `python3` (present on Omarchy).
 
 ## License
 

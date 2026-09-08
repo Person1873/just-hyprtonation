@@ -6,7 +6,7 @@
 -- shadows every tag bind, so no window or view changes while it is on.
 --
 -- From ~/.config/hypr/bindings.lua (after the hypr-dwm-land keys):
---   dofile(os.getenv("HOME") .. "/just-hyprtonation/hypr/jam.lua")
+--   dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/person1873.just-hyprtonation/hypr/jam.lua")
 -- Edit `key` for another chord.
 local key = "SUPER + ALT + M"
 

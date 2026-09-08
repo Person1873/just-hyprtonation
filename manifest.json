@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "person1873.just-hyprtonation",
+  "name": "Just hyprtonation",
+  "version": "0.1.0",
+  "author": "Person1873",
+  "description": "A vibraphone for hypr-dwm-land: each tag a just-intonated note, a view a chord",
+  "kinds": [
+    "service"
+  ],
+  "entryPoints": {
+    "service": "shell/Service.qml"
+  }
+}

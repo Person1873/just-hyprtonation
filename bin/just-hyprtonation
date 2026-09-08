@@ -15,6 +15,7 @@ what it would play; for tests).
                       [--backend fluidsynth|dry] [--soundfont PATH] [--tonic MIDI] [--muted] [--stdin]
     just-hyprtonation mute | stop        signal the running instance (pidfile in XDG_RUNTIME_DIR)
     just-hyprtonation instrument NAME|next|prev | pick | status   change or show its instrument
+    just-hyprtonation layout piano|laptop   F-key tuning, kept for next start
 SIGUSR1 toggles mute. --stdin reads protocol lines from standard input instead of the socket.
 """
 import argparse
@@ -593,6 +594,23 @@ def save_instrument(name):
         pass
 
 
+def saved_setting(name):
+    try:
+        with open(os.path.join(os.path.dirname(saved_path()), name)) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def save_setting(name, value):
+    try:
+        os.makedirs(os.path.dirname(saved_path()), mode=0o700, exist_ok=True)
+        with open(os.path.join(os.path.dirname(saved_path()), name), "w") as f:
+            f.write(value)
+    except OSError:
+        pass
+
+
 def saved_instrument():
     try:
         with open(saved_path()) as f:
@@ -659,6 +677,15 @@ def main():
     if len(sys.argv) == 2 and sys.argv[1] in ("mute", "stop"):
         signal_running(signal.SIGUSR1 if sys.argv[1] == "mute" else signal.SIGTERM)
         return
+    if len(sys.argv) == 3 and sys.argv[1] == "layout":
+        if sys.argv[2] not in LAYOUTS:
+            raise SystemExit("layouts: " + " ".join(sorted(LAYOUTS)))
+        save_setting("layout", sys.argv[2])
+        try:
+            signal_running(signal.SIGUSR2)
+        except SystemExit:
+            pass                    # saved for the next start
+        return
     if len(sys.argv) == 2 and sys.argv[1] == "status":
         cur = current_instrument()
         if not cur or not os.path.exists(pidfile_path()):
@@ -691,11 +718,16 @@ def main():
                     help="default: the last one picked, else vibraphone")
     ap.add_argument("--tonic", type=int, default=None, help="MIDI note of tag 1 (default: the instrument's)")
     ap.add_argument("--ntags", type=int, default=21)
-    ap.add_argument("--layout", default="piano", choices=sorted(LAYOUTS),
-                    help="F-key tuning: piano (the sharps in order) or laptop (F<n> between white n and n+1)")
+    ap.add_argument("--layout", default=None, choices=sorted(LAYOUTS),
+                    help="F-key tuning: piano (the sharps in order) or laptop (F<n> between white n and n+1); "
+                         "default: the last one given, else piano")
     ap.add_argument("--muted", action="store_true", help="start muted; SIGUSR1 toggles")
     ap.add_argument("--stdin", action="store_true", help="read protocol bodies from stdin (tests)")
     args = ap.parse_args()
+    if args.layout is None:
+        args.layout = saved_setting("layout") if saved_setting("layout") in LAYOUTS else "piano"
+    elif not args.stdin:
+        save_setting("layout", args.layout)
     set_layout(args.layout)
     if args.instrument is None:
         args.instrument = saved_instrument() or "vibraphone"
@@ -719,12 +751,17 @@ def main():
         print("muted" if player.muted else "unmuted", file=sys.stderr, flush=True)
 
     def change_instrument(*_):
+        layout = saved_setting("layout")
+        if layout in LAYOUTS and layout != args.layout:
+            args.layout = layout
+            set_layout(layout)
+            print(f"layout {layout}", file=sys.stderr, flush=True)
         try:
             with open(control_path()) as f:
                 name = f.read().strip()
         except OSError:
             return
-        if name in INSTRUMENTS:
+        if name in INSTRUMENTS and name != synth.instrument:
             synth.set_instrument(name)
             print(f"instrument {name}", file=sys.stderr, flush=True)
 
