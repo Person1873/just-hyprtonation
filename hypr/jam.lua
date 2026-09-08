@@ -17,8 +17,8 @@ hl.define_submap("jam", function()
     hl.bind("code:" .. (k + 9), ev("note|" .. k))
     hl.bind("SHIFT + code:" .. (k + 9), ev("chord|" .. k))
   end
-  hl.bind("code:19", ev("note|8"))            -- 0 sits an octave up
-  hl.bind("SHIFT + code:19", ev("chord|8"))
+  hl.bind("code:19", ev("degree|10"))         -- 0 is the tenth white key
+  hl.bind("SHIFT + code:19", ev("degreechord|10"))
   for k = 10, 21 do
     hl.bind("F" .. (k - 9), ev("note|" .. k))
     hl.bind("SHIFT + F" .. (k - 9), ev("chord|" .. k))

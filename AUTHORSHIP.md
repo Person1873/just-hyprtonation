@@ -110,7 +110,9 @@ on a laptop the F-keys sit evenly above the digits, unlike black keys: `--layout
 puts F*n* between white *n* and *n*+1, the sharp where a black key exists and the geometric
 mean of the two whites (a just quarter-tone) at E-F and B-C. The AI checked the table by
 printing it (F3 at 442 cents between E 386 and F 498; F7 at 1144 between B 1088 and C 1200)
-and fired note, chord and transpose events at the running player.
+and fired note, chord and transpose events at the running player. The 0 key first played
+the octave; the human noticed ("in jam mode, 0=8") and it is now the tenth scale degree,
+which is where the laptop layout already put it.
 
 ## Corrected (2026-09-08)
 

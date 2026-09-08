@@ -52,7 +52,7 @@ o.bind("SUPER + ALT + I", "Hyprtonation instrument", "~/just-hyprtonation/bin/ju
 ## Jam
 
 `SUPER + ALT + M` enters a Hyprland submap in which the tag keys play and move nothing:
-1..9, 0 and F1..F12 sound the tag, SHIFT + key the triad on that scale degree, `-` and `=`
+1..9 and F1..F12 sound the tag, 0 the tenth white key, SHIFT + key the triad on that scale degree, `-` and `=`
 move the key by a semitone (a tone with SHIFT), ESCAPE leaves. From
 `~/.config/hypr/bindings.lua`, after the hypr-dwm-land keys:
 

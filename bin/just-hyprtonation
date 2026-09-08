@@ -365,6 +365,7 @@ class Player:
 
     def jam(self, text):
         """Jam mode: `note|N` plays tag N's note, `chord|N` the triad on its scale degree,
+        `degree|N` / `degreechord|N` the same for scale degree N (the 0 key is degree 10),
         `transpose|S` moves the key by S semitones and sounds the new tonic. Nothing else
         changes; the keys are bound inside a Hyprland submap that shadows the tag keys."""
         what, _, arg = text.partition("|")
@@ -378,9 +379,16 @@ class Player:
             self.synth.transpose = max(-24, min(24, self.synth.transpose + step))
             self._play(1, NOTE_LEN)
             return
-        if not arg.isdigit() or not 1 <= int(arg) <= self.ntags:
+        if not arg.isdigit() or not 1 <= int(arg) <= max(self.ntags, 14):
             return
         tag = int(arg)
+        if what == "degree":            # a white key beyond the tags (0 is the tenth)
+            self._play(white(tag), NOTE_LEN)
+            return
+        if what == "degreechord":
+            for r in (white(tag), white(tag + 2), white(tag + 4)):
+                self._play(r, CHORD_LEN)
+            return
         if tag not in RATIOS:
             return
         if what == "note":
