@@ -2,8 +2,8 @@
 
 A cello for [hypr-dwm-land](https://github.com/Person1873/hypr-dwm-land). Each tag is a
 note. Viewing plays what you see: one tag, one note; several, the chord. Viewing all plays the
-populated tags in order. An urgent window plays two notes that lean toward its tag and stops;
-the tag's note follows when the tag is viewed.
+populated tags in order. An urgent window strikes a chord that wants its tag's chord and is
+left hanging; the tag's chord follows when the tag is viewed.
 
 ## Why
 

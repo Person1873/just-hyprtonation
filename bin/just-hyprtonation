@@ -39,18 +39,32 @@ BLACK = [25 / 24, 75 / 64, 45 / 32, 25 / 16, 225 / 128,
 RATIOS = {i + 1: r for i, r in enumerate(WHITE)}
 RATIOS.update({10 + i: r for i, r in enumerate(BLACK)})
 
-URGENT_LEAN = (9 / 8, 15 / 8)      # relative to the tag's own ratio, then silence
+# The urgency figure, relative to the tag's own ratio r: the diminished seventh on the
+# tag's leading tone (ti in the bass, re, fa, le above: 15/16, 9/8, 4/3, 8/5), held and
+# left. Every voice is one step from the tag's major triad, which is the resolution.
+# Two hits: a short one, then the held one, with the leading tone doubled an octave down.
+URGENT_FIGURE = [
+    ((15 / 32, 15 / 16, 9 / 8, 4 / 3, 8 / 5), 0.12),
+    ((15 / 32, 15 / 16, 9 / 8, 4 / 3, 8 / 5), 0.5),
+]
+URGENT_VELOCITY = 127             # a bow strike, not a swell
+URGENT_RESOLVE = (1, 5 / 4, 3 / 2)
 URGENT_REPEAT = 60.0              # seconds between reminders while ignored
 BEND_RANGE = 2                    # semitones either way, set on every channel
 CELLO_PROGRAM = 42                # General MIDI, zero-based
+STRIKE_PROGRAM = 42               # the same cello, with its envelope reshaped into a strike
+STRIKE_CC = ((73, 0), (72, 110), (74, 127), (71, 100), (7, 127), (11, 127))
+MELODIC_CC = ((7, 96), (11, 118))             # headroom so the strike lands above the line
 # One channel per simultaneous note (pitch bend is per channel). Channel 9 is General
-# MIDI's percussion channel whatever program it is given, so it is never used.
-MELODIC_CHANNELS = [ch for ch in range(16) if ch != 9]
+# MIDI's percussion channel whatever program it is given, so it is never used. The cello
+# and the strike patch live on separate channel pools.
+MELODIC_CHANNELS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+STRIKE_CHANNELS = [10, 11, 12, 13, 14, 15]
 NOTE_LEN = 0.9
 CHORD_LEN = 1.4
 ARP_NOTE = 0.32        # short, so at most two arpeggio notes ring together
 ARP_STEP = 0.17
-FIGURE_STEP = 0.22
+FIGURE_GAP = 0.06
 RESOLVE_LEN = 1.2
 VELOCITY = 84
 
@@ -74,11 +88,11 @@ class Dry:
     def __init__(self, tonic, **_):
         self.tonic = tonic
 
-    def play(self, ratio, seconds, channel=0):
+    def play(self, ratio, seconds, velocity=VELOCITY, strike=False):
         key, bend = midi_and_bend(self.tonic, ratio)
         cents = 1200 * math.log2(ratio)
         print(f"play ratio={ratio:.5f} ({cents:7.1f} cents) key={key} bend={bend} "
-              f"for {seconds:.2f}s on ch{channel}", flush=True)
+              f"vel={velocity} for {seconds:.2f}s{' strike' if strike else ''}", flush=True)
 
     def close(self):
         pass
@@ -97,9 +111,17 @@ class FluidSynth:
         cmd = ["/usr/bin/fluidsynth", "-n", "-a", audio_driver, "-q", "-g", str(gain), soundfont]
         self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                                      stderr=subprocess.DEVNULL, text=True)
+        self.next_strike = 0
         for ch in MELODIC_CHANNELS:
             self._send(f"prog {ch} {CELLO_PROGRAM}")
             self._send(f"pitch_bend_range {ch} {BEND_RANGE}")
+            for cc, val in MELODIC_CC:
+                self._send(f"cc {ch} {cc} {val}")
+        for ch in STRIKE_CHANNELS:
+            self._send(f"prog {ch} {STRIKE_PROGRAM}")
+            self._send(f"pitch_bend_range {ch} {BEND_RANGE}")
+            for cc, val in STRIKE_CC:
+                self._send(f"cc {ch} {cc} {val}")
 
     def _send(self, line):
         with self.lock:
@@ -108,13 +130,17 @@ class FluidSynth:
             self.proc.stdin.write(line + "\n")
             self.proc.stdin.flush()
 
-    def play(self, ratio, seconds, channel=None):
+    def play(self, ratio, seconds, velocity=VELOCITY, strike=False):
         key, bend = midi_and_bend(self.tonic, ratio)
         with self.lock:
-            ch = MELODIC_CHANNELS[self.next_channel]
-            self.next_channel = (self.next_channel + 1) % len(MELODIC_CHANNELS)
+            if strike:
+                ch = STRIKE_CHANNELS[self.next_strike]
+                self.next_strike = (self.next_strike + 1) % len(STRIKE_CHANNELS)
+            else:
+                ch = MELODIC_CHANNELS[self.next_channel]
+                self.next_channel = (self.next_channel + 1) % len(MELODIC_CHANNELS)
         self._send(f"pitch_bend {ch} {bend}")
-        self._send(f"noteon {ch} {key} {VELOCITY}")
+        self._send(f"noteon {ch} {key} {int(velocity)}")
         threading.Timer(seconds, lambda: self._send(f"noteoff {ch} {key}")).start()
 
     def close(self):
@@ -165,7 +191,7 @@ class PwPlay:
         self.cache[key] = path
         return path
 
-    def play(self, ratio, seconds, channel=None):
+    def play(self, ratio, seconds, velocity=VELOCITY, strike=False):
         path = self._file(ratio, seconds)
         subprocess.Popen(["/usr/bin/pw-play", "--", path],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -189,9 +215,9 @@ class Player:
         self.urgent_timers = {}
         self.lock = threading.Lock()
 
-    def _play(self, ratio, seconds):
+    def _play(self, ratio, seconds, velocity=VELOCITY, strike=False):
         if not self.muted:
-            self.synth.play(ratio, seconds)
+            self.synth.play(ratio, seconds, velocity, strike)
 
     def _later(self, delay, fn):
         t = threading.Timer(delay, fn)
@@ -243,12 +269,15 @@ class Player:
             self._later(i * step, lambda r=RATIOS[k]: self._play(r, ARP_NOTE))
 
     def figure(self, k, first=False):
-        """Two notes leaning toward the tag's own note, then nothing."""
+        """The diminished seventh on the tag's leading tone, held; it wants the tag's triad."""
         r = RATIOS.get(k)
         if r is None:
             return
-        for i, lean in enumerate(URGENT_LEAN):
-            self._later(i * FIGURE_STEP, lambda rr=r * lean: self._play(rr, FIGURE_STEP * 1.1))
+        t = 0.0
+        for notes, length in URGENT_FIGURE:
+            for lean in notes:
+                self._later(t, lambda rr=r * lean, ln=length: self._play(rr, ln, URGENT_VELOCITY, True))
+            t += length + FIGURE_GAP
         # the reminder, while it stays urgent and unviewed
         t = self._later(URGENT_REPEAT, lambda: self._remind(k))
         old = self.urgent_timers.get(k)
@@ -268,7 +297,8 @@ class Player:
         t = self.urgent_timers.pop(k, None)
         if t:
             t.cancel()
-        self._play(r, RESOLVE_LEN)
+        for lean in URGENT_RESOLVE:
+            self._play(r * lean, RESOLVE_LEN)
 
     # -- protocol -----------------------------------------------------------------------
 

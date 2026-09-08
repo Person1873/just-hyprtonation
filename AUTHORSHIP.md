@@ -30,6 +30,19 @@ adding one tag sounded as a single note (the chord now voices the whole view on 
 change), and the arpeggio was muddy (notes shortened to 0.32 s, step widened to 0.17 s so
 at most two ring together). The urgency figure has not yet been heard live.
 
+The urgency figure was then heard and reshaped over eight rounds, each a human judgment:
+two leaning notes ("insufficient to invoke tonality"), three (implied the key but did not
+demand resolution), a hanging tritone, a rootless major seventh ("too consonant"), a
+sharpened root, that plus a flat seventh (the fully diminished sound the human liked, but
+symmetric and "wanting to go somewhere else"), a half-diminished version, and finally the
+diminished seventh on the tag's leading tone, whose every voice is a step from the tag's
+major triad. Then the attack: velocity alone was still a swell (the SoundFont's cello has a
+slow onset at any velocity), a pizzicato patch struck but "reads as a different
+instrument", so the strike channels keep the cello and reshape its envelope with MIDI sound
+controllers (attack 0, longer release, brightness and resonance up) at full volume, doubled
+an octave down, hit twice. Verdict: "hits like a train horn now, which I guess is the
+natural conclusion to the direction I was pushing". Recorded as the intended sound.
+
 ## Tested earlier the same day, dry backend only
 
 The music logic was driven with scripted protocol lines and read back as the commands it
