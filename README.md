@@ -25,6 +25,20 @@ omarchy plugin add https://github.com/Person1873/just-hyprtonation.git --enable
 It needs hypr-dwm-land running, and reads its line on Hyprland's event socket
 (`custom>>hyprdwmland>><monitor>|v=…|o=…|u=…|f=…`). It changes nothing.
 
+## Urgency and `focus_on_activate`
+
+Most applications do not mark themselves urgent; they ask the compositor to activate them,
+and Hyprland's `misc:focus_on_activate` decides what that means. Omarchy ships it on, so the
+request focuses the window and hypr-dwm-land reveals its tag: a jump, no chime. Off, the
+request becomes urgency, hypr-dwm-land publishes it, and the figure plays until you view the
+tag. For the full experience, in `~/.config/hypr/hyprland.lua` or a file it requires:
+
+```lua
+hl.config({ misc = { focus_on_activate = false } })
+```
+
+That applies to every activation request, a browser link opened from another app included.
+
 ## Tuning
 
 | tag | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
