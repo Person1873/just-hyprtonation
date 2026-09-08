@@ -43,6 +43,13 @@ controllers (attack 0, longer release, brightness and resonance up) at full volu
 an octave down, hit twice. Verdict: "hits like a train horn now, which I guess is the
 natural conclusion to the direction I was pushing". Recorded as the intended sound.
 
+## Removed
+
+The pw-play fallback (sine tones rendered to files) was removed at the human's direction:
+"a pw-play fallback bloats the repo for the sake of a worse product". A pre-rendered file
+cannot react and needs an envelope baked in per note length; fluidsynth already does all of
+that, so the program has one real backend and one dry one.
+
 ## Tested earlier the same day, dry backend only
 
 The music logic was driven with scripted protocol lines and read back as the commands it

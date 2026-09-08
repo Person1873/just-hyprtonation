@@ -7,10 +7,10 @@ and plays: newly viewed tags (a chord when several arrive together), the populat
 an arpeggio when the view becomes "all", and an unresolved figure for an urgent tag that
 resolves onto the tag's own note when the tag is viewed.
 
-Backends: fluidsynth (default; a SoundFont cello, pitch-bent onto the just ratios),
-pw-play (sine tones synthesised at startup), dry (prints what it would play; for tests).
+Backends: fluidsynth (a SoundFont cello, pitch-bent onto the just ratios) and dry (prints
+what it would play; for tests).
 
-    just-hyprtonation [--monitor NAME] [--backend fluidsynth|pwplay|dry] [--soundfont PATH]
+    just-hyprtonation [--monitor NAME] [--backend fluidsynth|dry] [--soundfont PATH]
                       [--tonic MIDI] [--muted] [--stdin]
     just-hyprtonation mute | stop        signal the running instance (pidfile in XDG_RUNTIME_DIR)
 SIGUSR1 toggles mute. --stdin reads protocol lines from standard input instead of the socket.
@@ -20,12 +20,10 @@ import math
 import os
 import signal
 import socket
-import struct
 import subprocess
 import sys
 import threading
 import time
-import wave
 
 # ---------------------------------------------------------------------------------------
 # Tuning. Tag 1 is the tonic. Digits are the white keys of a just major scale, an octave
@@ -150,54 +148,6 @@ class FluidSynth:
             self.proc.wait(timeout=2)
         except subprocess.TimeoutExpired:
             self.proc.kill()
-
-
-class PwPlay:
-    """Fallback: a sine tone per ratio rendered once into $XDG_RUNTIME_DIR and played
-    with pw-play. No SoundFont, no cello, but the ratios are exact."""
-
-    RATE = 48000
-
-    def __init__(self, tonic, **_):
-        self.tonic = tonic
-        base = os.environ.get("XDG_RUNTIME_DIR")
-        if not base:
-            raise SystemExit("XDG_RUNTIME_DIR is not set")
-        self.dir = os.path.join(base, "just-hyprtonation")
-        os.makedirs(self.dir, mode=0o700, exist_ok=True)
-        self.cache = {}
-
-    def _file(self, ratio, seconds):
-        key = (round(ratio, 6), round(seconds, 2))
-        if key in self.cache:
-            return self.cache[key]
-        path = os.path.join(self.dir, f"tone-{key[0]}-{key[1]}.wav")
-        freq = 440.0 * 2 ** ((self.tonic - 69) / 12) * ratio
-        n = int(self.RATE * seconds)
-        attack = int(self.RATE * 0.06)
-        release = int(self.RATE * 0.25)
-        frames = bytearray()
-        for i in range(n):
-            env = min(1.0, i / attack, (n - i) / release)
-            s = 0.28 * env * (math.sin(2 * math.pi * freq * i / self.RATE)
-                              + 0.35 * math.sin(4 * math.pi * freq * i / self.RATE))
-            frames += struct.pack("<h", int(s * 32767))
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-        with os.fdopen(fd, "wb") as fh, wave.open(fh, "wb") as w:
-            w.setnchannels(1)
-            w.setsampwidth(2)
-            w.setframerate(self.RATE)
-            w.writeframes(bytes(frames))
-        self.cache[key] = path
-        return path
-
-    def play(self, ratio, seconds, velocity=VELOCITY, strike=False):
-        path = self._file(ratio, seconds)
-        subprocess.Popen(["/usr/bin/pw-play", "--", path],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-    def close(self):
-        pass
 
 
 # ---------------------------------------------------------------------------------------
@@ -431,7 +381,7 @@ def main():
         return
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--monitor", default=None, help="monitor name whose tags to voice (default: first)")
-    ap.add_argument("--backend", default="fluidsynth", choices=["fluidsynth", "pwplay", "dry"])
+    ap.add_argument("--backend", default="fluidsynth", choices=["fluidsynth", "dry"])
     ap.add_argument("--soundfont", default="/usr/share/soundfonts/FluidR3_GM.sf2")
     ap.add_argument("--audio-driver", default="pipewire")
     ap.add_argument("--tonic", type=int, default=48, help="MIDI note of tag 1 (48 = C3, cello)")
@@ -444,8 +394,6 @@ def main():
         if not os.path.isfile(args.soundfont):
             raise SystemExit(f"SoundFont not found: {args.soundfont}")
         synth = FluidSynth(args.tonic, soundfont=args.soundfont, audio_driver=args.audio_driver)
-    elif args.backend == "pwplay":
-        synth = PwPlay(args.tonic)
     else:
         synth = Dry(args.tonic)
 

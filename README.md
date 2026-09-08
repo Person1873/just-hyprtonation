@@ -28,7 +28,6 @@ Issues and PRs adjusting tuning will be closed as "Won't fix".
 
 ```sh
 bin/just-hyprtonation                       # cello via fluidsynth, first monitor
-bin/just-hyprtonation --backend pwplay      # sine tones, no SoundFont needed
 bin/just-hyprtonation --backend dry         # prints what it would play
 bin/just-hyprtonation --muted               # start silent
 bin/just-hyprtonation mute                  # toggle the running instance
@@ -52,7 +51,6 @@ It reads hypr-dwm-land's line on Hyprland's event socket
 - hypr-dwm-land.
 - `fluidsynth` and `soundfont-fluid` (Arch `extra`); on Omarchy
   `omarchy pkg add fluidsynth soundfont-fluid`. Not installed by this program.
-- `pw-play` for the fallback backend.
 
 ## License
 
