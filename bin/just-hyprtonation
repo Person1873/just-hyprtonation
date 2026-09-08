@@ -45,7 +45,8 @@ URGENT_FIGURE = [
     ((15 / 32, 15 / 16, 9 / 8, 4 / 3, 8 / 5), 0.12),
     ((15 / 32, 15 / 16, 9 / 8, 4 / 3, 8 / 5), 0.5),
 ]
-URGENT_VELOCITY = 127             # a bow strike, not a swell
+URGENT_VELOCITY = 127             # a bow strike, not a swell (the cello's; see STRIKE_VELOCITY)
+STRIKE_VELOCITY = 80              # ceiling for other instruments, which hit harder than a cello
 URGENT_RESOLVE = (1, 5 / 4, 3 / 2)
 URGENT_REPEAT = 60.0              # seconds between reminders while ignored
 BEND_RANGE = 2                    # semitones either way, set on every channel
@@ -54,14 +55,13 @@ BEND_RANGE = 2                    # semitones either way, set on every channel
 # envelope reshaped (patches with a slow onset) or already hit.
 STRIKE_SHAPE = ((73, 0), (72, 110), (74, 127), (71, 100))   # attack 0, long release, bright
 INSTRUMENTS = {
-    "cello":        dict(melodic=42, strike=42, tonic=48, shape=True),
-    "glass":        dict(melodic=92, strike=98, tonic=72, shape=False),   # bowed glass / crystal
+    "cello":        dict(melodic=42, strike=42, tonic=48, shape=True, strike_velocity=127),
+    "glass":        dict(melodic=92, strike=98, tonic=72, shape=False, velocity=56, strike_velocity=70),   # bowed glass / crystal, played softly
     "organ":        dict(melodic=19, strike=19, tonic=48, shape=True),    # church organ
-    "square":       dict(melodic=80, strike=80, tonic=60, shape=False),
-    "vibraphone":   dict(melodic=11, strike=11, tonic=60, shape=False),
+    "saw":          dict(melodic=81, strike=81, tonic=36, shape=False),
+    "vibraphone":   dict(melodic=11, strike=11, tonic=60, shape=False, strike_velocity=104),
     "dulcimer":     dict(melodic=15, strike=15, tonic=60, shape=False),
     "tubular":      dict(melodic=14, strike=14, tonic=60, shape=False),   # tubular bells
-    "glockenspiel": dict(melodic=9,  strike=9,  tonic=72, shape=False),
     # town-crier handbells: the glockenspiel patch left to ring (release up) in a room
     "handbell":     dict(melodic=9,  strike=9,  tonic=72, shape=False,
                          cc=((72, 100), (91, 110)),
@@ -116,9 +116,11 @@ class FluidSynth:
     """One fluidsynth process; commands over its stdin shell. Each simultaneous note gets
     its own channel because pitch bend is per channel."""
 
-    def __init__(self, tonic, soundfont, audio_driver="pipewire", gain=0.8, instrument="cello", **_):
+    def __init__(self, tonic, soundfont, audio_driver="pipewire", gain=0.8, instrument="vibraphone", **_):
         self.tonic = tonic
         inst = INSTRUMENTS[instrument]
+        self.velocity = inst.get("velocity", VELOCITY)
+        self.strike_velocity = inst.get("strike_velocity", STRIKE_VELOCITY)
         self.lock = threading.Lock()
         self.next_channel = 0
         # -n: no MIDI input driver. No -i: the shell stays on and reads our commands from
@@ -160,6 +162,10 @@ class FluidSynth:
                 ch = MELODIC_CHANNELS[self.next_channel]
                 self.next_channel = (self.next_channel + 1) % len(MELODIC_CHANNELS)
         self._send(f"pitch_bend {ch} {bend}")
+        if strike:
+            velocity = min(velocity, self.strike_velocity)
+        elif velocity == VELOCITY:
+            velocity = self.velocity
         self._send(f"noteon {ch} {key} {int(velocity)}")
         threading.Timer(seconds, lambda: self._send(f"noteoff {ch} {key}")).start()
 
@@ -406,7 +412,7 @@ def main():
     ap.add_argument("--backend", default="fluidsynth", choices=["fluidsynth", "dry"])
     ap.add_argument("--soundfont", default="/usr/share/soundfonts/FluidR3_GM.sf2")
     ap.add_argument("--audio-driver", default="pipewire")
-    ap.add_argument("--instrument", default="cello", choices=sorted(INSTRUMENTS))
+    ap.add_argument("--instrument", default="vibraphone", choices=sorted(INSTRUMENTS))
     ap.add_argument("--tonic", type=int, default=None, help="MIDI note of tag 1 (default: the instrument's)")
     ap.add_argument("--ntags", type=int, default=21)
     ap.add_argument("--muted", action="store_true", help="start muted; SIGUSR1 toggles")

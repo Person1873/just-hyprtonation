@@ -1,6 +1,6 @@
 # Just hyprtonation
 
-A cello for [hypr-dwm-land](https://github.com/Person1873/hypr-dwm-land). Each tag is a
+A vibraphone for [hypr-dwm-land](https://github.com/Person1873/hypr-dwm-land). Each tag is a
 note. Viewing plays what you see: one tag, one note; several, the chord. Viewing all plays the
 populated tags in order. An urgent window strikes a chord that wants its tag's chord and is
 left hanging; the tag's chord follows when the tag is viewed.
@@ -27,7 +27,7 @@ Issues and PRs adjusting tuning will be closed as "Won't fix".
 ## Running
 
 ```sh
-bin/just-hyprtonation                       # cello via fluidsynth, first monitor
+bin/just-hyprtonation                       # vibraphone via fluidsynth, first monitor
 bin/just-hyprtonation --backend dry         # prints what it would play
 bin/just-hyprtonation --muted               # start silent
 bin/just-hyprtonation mute                  # toggle the running instance
@@ -40,8 +40,8 @@ On Omarchy, from `~/.config/hypr/autostart.lua`:
 o.launch_on_start("~/just-hyprtonation/bin/just-hyprtonation")
 ```
 
-Options: `--instrument cello|glass|organ|square|vibraphone|dulcimer|tubular|glockenspiel|handbell`
-(default cello), `--monitor NAME`, `--tonic MIDI` (default: the instrument's), `--soundfont PATH` (default
+Options: `--instrument vibraphone|cello|glass|organ|saw|dulcimer|tubular|handbell`
+(default vibraphone), `--monitor NAME`, `--tonic MIDI` (default: the instrument's), `--soundfont PATH` (default
 `/usr/share/soundfonts/FluidR3_GM.sf2`), `--audio-driver` (default `pipewire`), `--stdin`.
 
 It reads hypr-dwm-land's line on Hyprland's event socket

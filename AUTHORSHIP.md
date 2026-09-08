@@ -52,8 +52,17 @@ tubular bells ("church bells, not what I'm chasing"; kept), glockenspiel ("that 
 with reverb and increased sustain"). The `handbell` instrument is that: the glockenspiel
 patch with release raised (CC 72), reverb send up (CC 91) and fluidsynth's reverb room set
 larger. Per-instrument controller and reverb hooks were added to carry it; the other
-instruments keep fluidsynth's default reverb. The dry run of each was the same sequence: one
-tag, a two-tag chord, view all, retreat.
+instruments keep fluidsynth's default reverb. The plain glockenspiel was then dropped as
+indistinguishable from the handbell back to back.
+
+Every instrument was then heard one at a time, the view sequence and the urgency figure,
+and adjusted on the human's word: glass played softly (velocity 56, "reduced attack" meant
+the hit, not the onset) with its strike at 70; the square wave replaced by a saw two octaves
+down ("I like it for the meme"); the organ's strike "loud" led to a general strike ceiling of
+80 for everything but the cello ("cello just isn't a super dynamic instrument in
+comparison"), and the vibraphone's raised to 104 from there. The vibraphone became the
+default: "doesn't ring out too much, cello felt a bit pompous". Dulcimer kept ("needs a
+specific aether theme to go with it").
 
 ## Removed
 
