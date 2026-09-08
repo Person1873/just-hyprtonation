@@ -197,6 +197,13 @@ layout; Escape closed), state files checked before and after; the human asked wh
 skill covered this and it does not, the plugin-authoring knowledge came from the shell's
 README and source. Mouse clicks were not exercised by the AI.
 
+Mute state (2026-09-09): "the toggle in instruments to mute the plugin gets out of sync
+with reality when you close and reopen the interface". The pane had kept mute as a local
+flag and is rebuilt on every open. The player now writes `muted` (0/1) beside its pidfile on
+start and on every toggle, and the pane watches that file like the instrument and layout.
+Verified: the file follows `mute` from the CLI, and the pane's header reads MUTED after a
+close and reopen while muted.
+
 ## Urgency versus focus_on_activate (2026-09-08)
 
 The human put a terminal on a tag and stepped away to see if a bell would chime; the

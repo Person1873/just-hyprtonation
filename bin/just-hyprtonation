@@ -596,6 +596,15 @@ def control_path():
     return os.path.join(os.path.dirname(pidfile_path()), "instrument")
 
 
+def write_muted(flag):
+    """Mute state for the settings pane, beside the pidfile (runtime, not remembered)."""
+    try:
+        with open(os.path.join(os.path.dirname(pidfile_path()), "muted"), "w") as f:
+            f.write("1" if flag else "0")
+    except OSError:
+        pass
+
+
 def write_control(name):
     os.makedirs(os.path.dirname(control_path()), mode=0o700, exist_ok=True)
     with open(control_path(), "w") as f:
@@ -771,6 +780,7 @@ def main():
 
     def toggle_mute(*_):
         player.muted = not player.muted
+        write_muted(player.muted)
         print("muted" if player.muted else "unmuted", file=sys.stderr, flush=True)
 
     def change_instrument(*_):
@@ -794,6 +804,7 @@ def main():
     pidfile = None if args.stdin else write_pidfile()
     if pidfile:
         write_control(args.instrument)
+        write_muted(player.muted)
 
     try:
         if args.stdin:

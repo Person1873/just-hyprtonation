@@ -37,6 +37,7 @@ Item {
   function open(payloadJson) {
     instrumentFile.reload()
     layoutFile.reload()
+    mutedFile.reload()
     pidFile.reload()
     root.opened = true
     root.cursor = -1
@@ -70,7 +71,7 @@ Item {
   }
 
   function toggleMute() {
-    root.muted = !root.muted        // the player keeps no mute file; tracked here per session
+    root.muted = !root.muted        // optimistic; the muted file confirms
     run(["mute"])
   }
 
@@ -95,6 +96,15 @@ Item {
     onFileChanged: reload()
     onLoaded: root.layout = String(text() || "").trim() || "piano"
     onLoadFailed: root.layout = "piano"
+  }
+  FileView {
+    id: mutedFile
+    path: root.runDir + "/muted"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.muted = String(text() || "").trim() === "1"
+    onLoadFailed: root.muted = false
   }
   FileView {
     id: pidFile
