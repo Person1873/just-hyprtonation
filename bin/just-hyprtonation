@@ -546,6 +546,8 @@ def main():
     signal.signal(signal.SIGUSR2, change_instrument)
     signal.signal(signal.SIGTERM, lambda *_: (synth.close(), sys.exit(0)))
     pidfile = None if args.stdin else write_pidfile()
+    if pidfile:
+        write_control(args.instrument)
 
     try:
         if args.stdin:
