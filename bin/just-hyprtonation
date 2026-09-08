@@ -10,9 +10,10 @@ resolves onto the tag's own note when the tag is viewed.
 Backends: fluidsynth (a SoundFont cello, pitch-bent onto the just ratios) and dry (prints
 what it would play; for tests).
 
-    just-hyprtonation [--monitor NAME] [--instrument cello|glass|organ|square|vibraphone|dulcimer|celesta|tubular|glockenspiel]
+    just-hyprtonation [--monitor NAME] [--instrument vibraphone|cello|glass|organ|saw|dulcimer|tubular|handbell]
                       [--backend fluidsynth|dry] [--soundfont PATH] [--tonic MIDI] [--muted] [--stdin]
     just-hyprtonation mute | stop        signal the running instance (pidfile in XDG_RUNTIME_DIR)
+    just-hyprtonation instrument NAME|next|prev | pick | status   change or show its instrument
 SIGUSR1 toggles mute. --stdin reads protocol lines from standard input instead of the socket.
 """
 import argparse
@@ -394,6 +395,36 @@ def control_path():
     return os.path.join(os.path.dirname(pidfile_path()), "instrument")
 
 
+def write_control(name):
+    os.makedirs(os.path.dirname(control_path()), mode=0o700, exist_ok=True)
+    with open(control_path(), "w") as f:
+        f.write(name)
+
+
+def current_instrument():
+    try:
+        with open(control_path()) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def pick_instrument():
+    """Menu of instruments via omarchy-menu-select (the Omarchy shell); returns the
+    choice, or "" if dismissed."""
+    names = sorted(INSTRUMENTS)
+    cur = current_instrument()
+    rows = [("\u2713\t" + n) if n == cur else n for n in names]
+    try:
+        out = subprocess.run(["omarchy-menu-select", "Instrument", *rows],
+                             capture_output=True, text=True, timeout=120).stdout.strip()
+    except FileNotFoundError:
+        raise SystemExit("omarchy-menu-select not found; pass the name: instrument NAME")
+    except subprocess.TimeoutExpired:
+        return ""
+    return out if out in INSTRUMENTS else ""
+
+
 def signal_running(sig):
     """Send `sig` to the instance named by the pidfile, after checking it is ours."""
     path = pidfile_path()
@@ -427,12 +458,26 @@ def main():
     if len(sys.argv) == 2 and sys.argv[1] in ("mute", "stop"):
         signal_running(signal.SIGUSR1 if sys.argv[1] == "mute" else signal.SIGTERM)
         return
-    if len(sys.argv) == 3 and sys.argv[1] == "instrument":
-        if sys.argv[2] not in INSTRUMENTS:
-            raise SystemExit("instruments: " + " ".join(sorted(INSTRUMENTS)))
-        os.makedirs(os.path.dirname(control_path()), mode=0o700, exist_ok=True)
-        with open(control_path(), "w") as f:
-            f.write(sys.argv[2])
+    if len(sys.argv) == 2 and sys.argv[1] == "status":
+        cur = current_instrument()
+        if not cur or not os.path.exists(pidfile_path()):
+            raise SystemExit(1)
+        print(cur)
+        return
+    if len(sys.argv) in (2, 3) and sys.argv[1] in ("instrument", "pick"):
+        names = sorted(INSTRUMENTS)
+        want = sys.argv[2] if len(sys.argv) == 3 else ""
+        if sys.argv[1] == "pick" or want == "":
+            want = pick_instrument()
+            if not want:
+                return
+        elif want in ("next", "prev"):
+            cur = current_instrument()
+            i = names.index(cur) if cur in names else -1
+            want = names[(i + (1 if want == "next" else -1)) % len(names)]
+        elif want not in INSTRUMENTS:
+            raise SystemExit("instruments: " + " ".join(names) + " | next | prev")
+        write_control(want)
         signal_running(signal.SIGUSR2)
         return
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

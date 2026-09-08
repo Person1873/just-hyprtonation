@@ -32,14 +32,22 @@ bin/just-hyprtonation --backend dry         # prints what it would play
 bin/just-hyprtonation --muted               # start silent
 bin/just-hyprtonation mute                  # toggle the running instance
 bin/just-hyprtonation instrument handbell   # change the running instance's instrument
+bin/just-hyprtonation instrument next       # or prev
+bin/just-hyprtonation pick                  # choose from a menu (Omarchy)
+bin/just-hyprtonation status                # the current instrument
 bin/just-hyprtonation stop
 ```
 
-On Omarchy, from `~/.config/hypr/autostart.lua`:
+On Omarchy, from `~/.config/hypr/autostart.lua` and `bindings.lua`:
 
 ```lua
 o.launch_on_start("~/just-hyprtonation/bin/just-hyprtonation")
+o.bind("SUPER + ALT + I", "Hyprtonation instrument", "~/just-hyprtonation/bin/just-hyprtonation pick")
 ```
+
+[examples/omarchy-menu.jsonc](examples/omarchy-menu.jsonc) adds a Hyprtonation submenu to
+the Omarchy menu, with mute and one row per instrument, the current one ticked; merge it into
+`~/.config/omarchy/extensions/omarchy-menu.jsonc`.
 
 Options: `--instrument vibraphone|cello|glass|organ|saw|dulcimer|tubular|handbell`
 (default vibraphone), `--monitor NAME`, `--tonic MIDI` (default: the instrument's), `--soundfont PATH` (default

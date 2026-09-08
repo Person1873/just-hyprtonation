@@ -74,6 +74,15 @@ explicitly). The tonic follows the instrument unless `--tonic` was given. Heard 
 vibraphone, handbell, saw, vibraphone, one tag each, with no relaunch; a bad name prints
 the list and exits 1.
 
+The human then called that "infrastructure, not integration", so: `pick` puts the list
+through `omarchy-menu-select` with the current one ticked, `next`/`prev` cycle, `status`
+prints the current name, the instance records its instrument at start, and
+`examples/omarchy-menu.jsonc` gives the Omarchy menu a submenu whose rows tick the current
+instrument through bash `checked:` conditions (verified in the shell's `MenuModel.js`, which
+runs `when:` and `checked:` as bash). Tested: `next`/`prev`/`status` on the running
+instance; the menu rows and the `SUPER + ALT + I` key were installed on the author's machine
+and the config reloaded clean.
+
 ## Removed
 
 The pw-play fallback (sine tones rendered to files) was removed at the human's direction:

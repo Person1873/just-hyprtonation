@@ -1,0 +1,15 @@
+// Omarchy menu rows for just-hyprtonation. Merge into
+// ~/.config/omarchy/extensions/omarchy-menu.jsonc (the menu hot-reloads on save).
+// The submenu only shows while an instance is running.
+{
+  "hyprtonation": {"icon":"󰎈","label":"Hyprtonation","when":"[ -e \"$XDG_RUNTIME_DIR/just-hyprtonation/pid\" ]"},
+  "hyprtonation.mute": {"icon":"󰝟","label":"Mute","action":"$HOME/just-hyprtonation/bin/just-hyprtonation mute"},
+  "hyprtonation.vibraphone": {"label":"Vibraphone","action":"$HOME/just-hyprtonation/bin/just-hyprtonation instrument vibraphone","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = vibraphone ]"},
+  "hyprtonation.cello": {"label":"Cello","action":"$HOME/just-hyprtonation/bin/just-hyprtonation instrument cello","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = cello ]"},
+  "hyprtonation.glass": {"label":"Glass","action":"$HOME/just-hyprtonation/bin/just-hyprtonation instrument glass","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = glass ]"},
+  "hyprtonation.organ": {"label":"Organ","action":"$HOME/just-hyprtonation/bin/just-hyprtonation instrument organ","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = organ ]"},
+  "hyprtonation.saw": {"label":"Saw","action":"$HOME/just-hyprtonation/bin/just-hyprtonation instrument saw","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = saw ]"},
+  "hyprtonation.dulcimer": {"label":"Dulcimer","action":"$HOME/just-hyprtonation/bin/just-hyprtonation instrument dulcimer","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = dulcimer ]"},
+  "hyprtonation.tubular": {"label":"Tubular","action":"$HOME/just-hyprtonation/bin/just-hyprtonation instrument tubular","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = tubular ]"},
+  "hyprtonation.handbell": {"label":"Handbell","action":"$HOME/just-hyprtonation/bin/just-hyprtonation instrument handbell","checked":"[ \"$(cat \"$XDG_RUNTIME_DIR/just-hyprtonation/instrument\" 2>/dev/null)\" = handbell ]"}
+}
