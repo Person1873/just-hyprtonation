@@ -10,8 +10,8 @@ resolves onto the tag's own note when the tag is viewed.
 Backends: fluidsynth (a SoundFont cello, pitch-bent onto the just ratios) and dry (prints
 what it would play; for tests).
 
-    just-hyprtonation [--monitor NAME] [--backend fluidsynth|dry] [--soundfont PATH]
-                      [--tonic MIDI] [--muted] [--stdin]
+    just-hyprtonation [--monitor NAME] [--instrument cello|glass|organ|square|vibraphone|dulcimer|bells|glockenspiel]
+                      [--backend fluidsynth|dry] [--soundfont PATH] [--tonic MIDI] [--muted] [--stdin]
     just-hyprtonation mute | stop        signal the running instance (pidfile in XDG_RUNTIME_DIR)
 SIGUSR1 toggles mute. --stdin reads protocol lines from standard input instead of the socket.
 """
@@ -49,9 +49,21 @@ URGENT_VELOCITY = 127             # a bow strike, not a swell
 URGENT_RESOLVE = (1, 5 / 4, 3 / 2)
 URGENT_REPEAT = 60.0              # seconds between reminders while ignored
 BEND_RANGE = 2                    # semitones either way, set on every channel
-CELLO_PROGRAM = 42                # General MIDI, zero-based
-STRIKE_PROGRAM = 42               # the same cello, with its envelope reshaped into a strike
-STRIKE_CC = ((73, 0), (72, 110), (74, 127), (71, 100), (7, 127), (11, 127))
+# Instruments: General MIDI programs (zero-based) for the melodic channels and for the
+# urgency strike, the tonic (MIDI note of tag 1), and whether the strike channels need the
+# envelope reshaped (patches with a slow onset) or already hit.
+STRIKE_SHAPE = ((73, 0), (72, 110), (74, 127), (71, 100))   # attack 0, long release, bright
+INSTRUMENTS = {
+    "cello":        dict(melodic=42, strike=42, tonic=48, shape=True),
+    "glass":        dict(melodic=92, strike=98, tonic=72, shape=False),   # bowed glass / crystal
+    "organ":        dict(melodic=19, strike=19, tonic=48, shape=True),    # church organ
+    "square":       dict(melodic=80, strike=80, tonic=60, shape=False),
+    "vibraphone":   dict(melodic=11, strike=11, tonic=60, shape=False),
+    "dulcimer":     dict(melodic=15, strike=15, tonic=60, shape=False),
+    "bells":        dict(melodic=14, strike=14, tonic=60, shape=False),   # tubular bells
+    "glockenspiel": dict(melodic=9,  strike=9,  tonic=72, shape=False),
+}
+STRIKE_LEVEL = ((7, 127), (11, 127))
 MELODIC_CC = ((7, 96), (11, 118))             # headroom so the strike lands above the line
 # One channel per simultaneous note (pitch bend is per channel). Channel 9 is General
 # MIDI's percussion channel whatever program it is given, so it is never used. The cello
@@ -100,8 +112,9 @@ class FluidSynth:
     """One fluidsynth process; commands over its stdin shell. Each simultaneous note gets
     its own channel because pitch bend is per channel."""
 
-    def __init__(self, tonic, soundfont, audio_driver="pipewire", gain=0.8, **_):
+    def __init__(self, tonic, soundfont, audio_driver="pipewire", gain=0.8, instrument="cello", **_):
         self.tonic = tonic
+        inst = INSTRUMENTS[instrument]
         self.lock = threading.Lock()
         self.next_channel = 0
         # -n: no MIDI input driver. No -i: the shell stays on and reads our commands from
@@ -111,14 +124,14 @@ class FluidSynth:
                                      stderr=subprocess.DEVNULL, text=True)
         self.next_strike = 0
         for ch in MELODIC_CHANNELS:
-            self._send(f"prog {ch} {CELLO_PROGRAM}")
+            self._send(f"prog {ch} {inst['melodic']}")
             self._send(f"pitch_bend_range {ch} {BEND_RANGE}")
             for cc, val in MELODIC_CC:
                 self._send(f"cc {ch} {cc} {val}")
         for ch in STRIKE_CHANNELS:
-            self._send(f"prog {ch} {STRIKE_PROGRAM}")
+            self._send(f"prog {ch} {inst['strike']}")
             self._send(f"pitch_bend_range {ch} {BEND_RANGE}")
-            for cc, val in STRIKE_CC:
+            for cc, val in STRIKE_LEVEL + (STRIKE_SHAPE if inst["shape"] else ()):
                 self._send(f"cc {ch} {cc} {val}")
 
     def _send(self, line):
@@ -384,18 +397,21 @@ def main():
     ap.add_argument("--backend", default="fluidsynth", choices=["fluidsynth", "dry"])
     ap.add_argument("--soundfont", default="/usr/share/soundfonts/FluidR3_GM.sf2")
     ap.add_argument("--audio-driver", default="pipewire")
-    ap.add_argument("--tonic", type=int, default=48, help="MIDI note of tag 1 (48 = C3, cello)")
+    ap.add_argument("--instrument", default="cello", choices=sorted(INSTRUMENTS))
+    ap.add_argument("--tonic", type=int, default=None, help="MIDI note of tag 1 (default: the instrument's)")
     ap.add_argument("--ntags", type=int, default=21)
     ap.add_argument("--muted", action="store_true", help="start muted; SIGUSR1 toggles")
     ap.add_argument("--stdin", action="store_true", help="read protocol bodies from stdin (tests)")
     args = ap.parse_args()
 
+    tonic = args.tonic if args.tonic is not None else INSTRUMENTS[args.instrument]["tonic"]
     if args.backend == "fluidsynth":
         if not os.path.isfile(args.soundfont):
             raise SystemExit(f"SoundFont not found: {args.soundfont}")
-        synth = FluidSynth(args.tonic, soundfont=args.soundfont, audio_driver=args.audio_driver)
+        synth = FluidSynth(tonic, soundfont=args.soundfont, audio_driver=args.audio_driver,
+                           instrument=args.instrument)
     else:
-        synth = Dry(args.tonic)
+        synth = Dry(tonic)
 
     player = Player(synth, ntags=args.ntags)
     player.muted = args.muted

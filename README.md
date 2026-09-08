@@ -40,7 +40,8 @@ On Omarchy, from `~/.config/hypr/autostart.lua`:
 o.launch_on_start("~/just-hyprtonation/bin/just-hyprtonation")
 ```
 
-Options: `--monitor NAME`, `--tonic MIDI` (default 48), `--soundfont PATH` (default
+Options: `--instrument cello|glass|organ|square|vibraphone|dulcimer|bells|glockenspiel`
+(default cello), `--monitor NAME`, `--tonic MIDI` (default: the instrument's), `--soundfont PATH` (default
 `/usr/share/soundfonts/FluidR3_GM.sf2`), `--audio-driver` (default `pipewire`), `--stdin`.
 
 It reads hypr-dwm-land's line on Hyprland's event socket
