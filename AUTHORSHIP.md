@@ -214,6 +214,11 @@ Every earlier urgency demonstration had turned that option off for the duration.
 README now says so; the human asked for the note. Herdr's own "done" chime for an idle
 agent is Herdr's sound, unrelated to compositor urgency.
 
+Mute across restarts (2026-09-09): the human found that "the mute toggle gets reset
+whenever you reload the plugin". Mute lived in memory and in the runtime file; it is now also
+saved under the state directory on every toggle and read at start (`--muted` still forces
+it). Tested: mute, stop the player (the service restarts it), the new instance reports muted.
+
 ## Corrected (2026-09-08)
 
 Asked for "a swell and decay" on the saw, the AI sent MIDI sound controllers (CC 73 attack,

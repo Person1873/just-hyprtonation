@@ -753,7 +753,7 @@ def main():
     ap.add_argument("--layout", default=None, choices=sorted(LAYOUTS),
                     help="F-key tuning: piano (the sharps in order) or laptop (F<n> between white n and n+1); "
                          "default: the last one given, else piano")
-    ap.add_argument("--muted", action="store_true", help="start muted; SIGUSR1 toggles")
+    ap.add_argument("--muted", action="store_true", help="start muted (otherwise the last toggle is remembered); SIGUSR1 toggles")
     ap.add_argument("--stdin", action="store_true", help="read protocol bodies from stdin (tests)")
     args = ap.parse_args()
     if args.layout is None:
@@ -776,11 +776,13 @@ def main():
         synth = Dry(tonic)
 
     player = Player(synth, ntags=args.ntags)
-    player.muted = args.muted
+    # --muted forces it for this run; otherwise the last toggle wins, then unmuted
+    player.muted = args.muted or (not args.stdin and saved_setting("muted") == "1")
 
     def toggle_mute(*_):
         player.muted = not player.muted
         write_muted(player.muted)
+        save_setting("muted", "1" if player.muted else "0")   # survives a restart
         print("muted" if player.muted else "unmuted", file=sys.stderr, flush=True)
 
     def change_instrument(*_):
